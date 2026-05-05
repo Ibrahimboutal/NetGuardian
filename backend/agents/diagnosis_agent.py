@@ -1,28 +1,29 @@
 from .gemma_client import query_gemma
 
 
-def run_diagnosis(anomaly_event: dict) -> str:
+def run_diagnosis(anomaly_event: dict, context: str = "") -> dict:
     """
-    Diagnosis Agent — answers: what is happening right now?
-    Input:  anomaly event dict
-    Output: plain-text diagnosis string
+    Diagnosis Agent — Technical Analyst Role.
+    Returns: JSON {issue, root_cause, confidence, impact}
     """
-    prompt = f"""You are a senior network reliability engineer.
+    prompt = f"""SYSTEM: You are the Lead Network Forensic Analyst for Critical Infrastructure.
+Your role is to perform deep technical analysis of anomalous network events.
+Output strictly valid JSON. No conversational text, no preamble, no fluff.
 
-An anomaly has been detected in the network with the following metrics:
-- Latency: {anomaly_event['latency_ms']}ms  (normal: ~13ms)
-- Throughput: {anomaly_event['throughput_mbps']} Mbps  (normal: ~950 Mbps)
-- Packet Loss: {anomaly_event['packet_loss_pct']}%  (normal: ~0.1%)
-- Jitter: {anomaly_event['jitter_ms']}ms  (normal: ~2ms)
-- Active Connections: {anomaly_event['connections']}  (normal: ~141)
-- Severity: {anomaly_event['severity'].upper()}
-- Primary Metric: {anomaly_event['primary_metric']}
-- Timestamp: {anomaly_event['timestamp']}
+SITUATION TELEMETRY:
+{anomaly_event}
 
-In 2-3 sentences, explain clearly and concisely:
-1. What is happening in the network right now?
-2. What are the most likely root causes?
+HISTORICAL CONTEXT (Past 5 Incidents):
+{context}
 
-Be specific and technical. Do NOT suggest actions yet."""
+JSON SCHEMA:
+{{
+  "issue": "Technical classification of the incident",
+  "root_cause": "Detailed technical root cause",
+  "confidence": "Analysis confidence percentage (e.g. 95%)",
+  "impact": "Operational impact on critical systems"
+}}
+
+STRICT CONSTRAINT: Maintain a clinical, analytical, and highly technical tone."""
 
     return query_gemma(prompt)

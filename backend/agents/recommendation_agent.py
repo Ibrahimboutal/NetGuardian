@@ -1,27 +1,35 @@
 from .gemma_client import query_gemma
 
 
-def run_recommendation(anomaly_event: dict, diagnosis: str) -> str:
+def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "") -> dict:
     """
-    Recommendation Agent — answers: what should we do about it?
-    Input:  anomaly event + diagnosis text
-    Output: numbered action list
+    Recommendation Agent — Incident Commander Role.
+    Returns: JSON {actions: [{action, priority, difficulty}]}
     """
-    prompt = f"""You are a network operations expert.
+    prompt = f"""SYSTEM: You are the Incident Commander for Infrastructure Defense.
+Your role is to provide immediate, high-impact tactical remediations.
+Output strictly valid JSON. No conversational text, no preamble, no fluff.
 
-SITUATION:
+DIAGNOSIS:
 {diagnosis}
 
-CURRENT METRICS:
-- Latency: {anomaly_event['latency_ms']}ms
-- Packet Loss: {anomaly_event['packet_loss_pct']}%
-- Throughput: {anomaly_event['throughput_mbps']} Mbps
-- Jitter: {anomaly_event['jitter_ms']}ms
-- Severity: {anomaly_event['severity'].upper()}
+TELEMETRY:
+{anomaly_event}
 
-Provide exactly 4 concrete remediation actions, numbered 1-4.
-Each action must be specific and immediately actionable.
-Format: "1. [Action]" — one action per line.
-Do NOT repeat the diagnosis. Focus only on actions."""
+HISTORICAL CONTEXT:
+{context}
+
+JSON SCHEMA:
+{{
+  "actions": [
+    {{ 
+      "action": "Immediate tactical command", 
+      "priority": "CRITICAL/HIGH/MEDIUM/LOW", 
+      "difficulty": "Easy/Medium/Hard" 
+    }}
+  ]
+}}
+
+STRICT CONSTRAINT: Provide exactly 4 prioritized actions. Be direct, authoritative, and purely actionable. No fluff."""
 
     return query_gemma(prompt)
