@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Zap, Activity, Info, AlertTriangle } from "lucide-react";
+import { Brain, ShieldCheck, Zap, Activity, Info, AlertTriangle, CheckCircle } from "lucide-react";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },
@@ -30,6 +30,8 @@ export default function AIPanel({ incident, thinking }) {
   const recommendation = hasAgents?.recommendation || {};
   const explanation = hasAgents?.explanation || {};
   const experience = incident?.grounded_experience || {};
+  const simulation = incident?.simulation_results;
+  const mitigations = incident?.mitigation_results || [];
 
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
@@ -79,7 +81,8 @@ export default function AIPanel({ incident, thinking }) {
           <div>
             <ThinkingIndicator label="🧠 RAG Layer retrieving historical context…" />
             <ThinkingIndicator label="🩺 Reasoning Agent predicting failure cascade…" />
-            <ThinkingIndicator label="🔧 Commander Agent planning tool execution…" />
+            <ThinkingIndicator label="🔬 Executing real-time impact simulation…" />
+            <ThinkingIndicator label="🔧 Commander Agent executing tactical isolation…" />
           </div>
         )}
 
@@ -95,17 +98,19 @@ export default function AIPanel({ incident, thinking }) {
                 Status: {diagnosis.risk_level || "Investigating"}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
-                Predicted: {diagnosis.predicted_next_failure || "Unknown Cascade"}
+                Intervened: {diagnosis.predicted_next_failure || "Unknown Cascade"}
               </div>
             </div>
 
-            {/* Experience Grounding */}
-            {experience.name && (
-              <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, borderLeft: "3px solid #06b6d4" }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4", marginBottom: 2 }}>GROUNDED EXPERIENCE</div>
-                <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{experience.name}</div>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{experience.description}</div>
-              </div>
+            {/* Tactical Execution Moment */}
+            {mitigations.length > 0 && (
+               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(16,185,129,0.05)", borderRadius: 6, borderLeft: "3px solid #10b981" }}>
+               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4 }}>
+                  <CheckCircle size={10} /> AUTONOMOUS MITIGATION SUCCESSFUL
+               </div>
+               <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{mitigations[0].intervention}</div>
+               <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>Target: {mitigations[0].target} | Recovery: {mitigations[0].impact_recovery_est}</div>
+             </div>
             )}
 
             <p className="ai-text">{explanation.summary}</p>
@@ -123,6 +128,15 @@ export default function AIPanel({ incident, thinking }) {
               <span className="ai-value">{diagnosis.predicted_next_failure}</span>
             </div>
 
+            {/* Simulation Block */}
+            {simulation && (
+               <div style={{ padding: "8px 10px", background: "rgba(245,158,11,0.05)", borderRadius: 6, border: "1px dashed rgba(245,158,11,0.3)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", marginBottom: 4 }}>SIMULATION OUTPUT</div>
+                  <div style={{ fontSize: 11, color: "#f1f5f9" }}><strong>Outcome:</strong> {simulation.predicted_outcome}</div>
+                  <div style={{ fontSize: 10, color: "#94a3b8" }}>Cascade in {simulation.time_to_critical_failure}</div>
+               </div>
+            )}
+
             {/* Reasoning Trace */}
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" }}>Reasoning Trace</div>
@@ -131,20 +145,6 @@ export default function AIPanel({ incident, thinking }) {
                 fontSize: 11, color: "#cbd5e1", lineHeight: 1.5, fontStyle: "italic"
               }}>
                 "{diagnosis.reasoning_trace}"
-              </div>
-            </div>
-
-            <div style={{ marginTop: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b", marginBottom: 4 }}>
-                <span>CASCADE PROBABILITY</span>
-                <span>{(diagnosis.probability_of_cascade * 100).toFixed(0)}%</span>
-              </div>
-              <div style={{ height: 4, background: "#1e2d4a", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ 
-                  height: "100%", background: "#ef4444", 
-                  width: `${(diagnosis.probability_of_cascade * 100)}%`,
-                  transition: "width 1s ease-out"
-                }} />
               </div>
             </div>
           </div>
