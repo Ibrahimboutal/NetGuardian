@@ -28,4 +28,14 @@ JSON SCHEMA:
 
 STRICT CONSTRAINT: Use a professional, calm, yet urgent narrative style. Avoid excessive jargon in the summary."""
 
-    return query_gemma(prompt)
+    result = query_gemma(prompt)
+    
+    # Failure handling
+    if "error" in result or not result.get("summary"):
+        return {
+            "summary": "We are currently observing anomalous system behavior. Detailed AI analysis is currently degraded, but automated containment protocols remain active.",
+            "eta_guess": "Unknown",
+            "status_color": "yellow"
+        }
+        
+    return result

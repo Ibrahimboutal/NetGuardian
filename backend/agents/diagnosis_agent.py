@@ -26,4 +26,15 @@ JSON SCHEMA:
 
 STRICT CONSTRAINT: Maintain a clinical, analytical, and highly technical tone."""
 
-    return query_gemma(prompt)
+    result = query_gemma(prompt)
+    
+    # Failure handling for bad outputs
+    if "error" in result or not result.get("issue"):
+        return {
+            "issue": "Unknown Anomaly Detected",
+            "root_cause": "Telemetry analysis degraded (AI output invalid)",
+            "confidence": "Low",
+            "impact": "Investigation required. Potential system instability."
+        }
+    
+    return result

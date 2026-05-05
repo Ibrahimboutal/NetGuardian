@@ -32,4 +32,15 @@ JSON SCHEMA:
 
 STRICT CONSTRAINT: Provide exactly 4 prioritized actions. Be direct, authoritative, and purely actionable. No fluff."""
 
-    return query_gemma(prompt)
+    result = query_gemma(prompt)
+    
+    # Failure handling
+    if "error" in result or not result.get("actions"):
+        return {
+            "actions": [
+                { "action": "Initiate manual telemetry verification", "priority": "CRITICAL", "difficulty": "Easy" },
+                { "action": "Consult emergency runbooks for detected metric spikes", "priority": "HIGH", "difficulty": "Medium" }
+            ]
+        }
+        
+    return result

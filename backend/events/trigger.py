@@ -22,8 +22,10 @@ class AnomalyMemory:
 
     def get_context(self) -> str:
         if not self.history:
-            return "No previous anomalies recorded."
-        return "\n".join([f"- {h['timestamp']}: {h['issue']} ({h['severity']})" for h in self.history])
+            return "[]"
+        # Return last 5 events as a JSON string for "temporal reasoning"
+        import json
+        return json.dumps(self.history, indent=2)
 
 # Initialize memory
 memory = AnomalyMemory()

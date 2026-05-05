@@ -1,5 +1,7 @@
 # 🛡️ NetGuardian — AI Resilience for Critical Infrastructure
 
+> **"NetGuardian operates even when the network itself is failing."**
+>
 > **Enterprise-Grade Incident Response** — Real-time anomaly detection powered by local, offline multi-agent AI (Gemma 4). Engineered for secure, isolated environments where cloud dependencies are a liability.
 
 ---
@@ -127,7 +129,9 @@ netguardian/
 
 ## ⚠️ Why NetGuardian Wins
 
-- **100% Offline**: No API keys, no data leaks, no internet required.
-- **Agentic Memory**: Maintains state across incidents for smarter, context-aware responses.
+> **"NetGuardian operates even when the network itself is failing."**
+
+- **100% Offline**: No API keys, no data leaks, no internet required. Zero cloud dependency.
+- **Agentic Memory**: Maintains state across incidents for smarter, context-aware responses and temporal reasoning.
 - **Enterprise-Grade**: Structured JSON output ensures the AI can be integrated with other automated systems (firewalls, ticket systems).
-- **Sub-Second Reasoning**: Optimized for local Gemma models.
+- **Sub-Second Reasoning**: Optimized for local Gemma models, ensuring defense-grade latency.

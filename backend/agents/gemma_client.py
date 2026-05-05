@@ -8,11 +8,30 @@ DEFAULT_MODEL = "gemma3"
 
 logger = logging.getLogger(__name__)
 
+def safe_parse(text: str) -> dict:
+    """
+    Extract and parse JSON from LLM output. 
+    Handles conversational fluff and malformed strings.
+    """
+    try:
+        # Attempt direct parse first
+        return json.loads(text)
+    except Exception:
+        # Search for JSON block using regex
+        try:
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+        except Exception:
+            pass
+    
+    # Return indicator of failure
+    return {"error": "invalid_json", "raw": text}
 
 def query_gemma(prompt: str, model: str = DEFAULT_MODEL) -> dict:
     """
     Send a prompt to a locally-running Ollama model and return the parsed JSON response.
-    Falls back gracefully if Ollama is not running or JSON is malformed.
+    Falls back gracefully if Ollama is not running or output is invalid.
     """
     try:
         response = requests.post(
@@ -22,24 +41,10 @@ def query_gemma(prompt: str, model: str = DEFAULT_MODEL) -> dict:
         )
         response.raise_for_status()
         raw_text = response.json().get("response", "").strip()
-        return _parse_json(raw_text)
+        return safe_parse(raw_text)
     except Exception as exc:
-        logger.error("Gemma query failed or JSON invalid: %s", exc)
-        return _parse_json(_mock_response(prompt))
-
-
-def _parse_json(text: str) -> dict:
-    """Extract and parse JSON from LLM output."""
-    try:
-        # Find JSON block if LLM added markdown or fluff
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        return json.loads(text)
-    except Exception:
-        # Return as 'raw' if parsing fails completely
-        return {"raw": text}
-
+        logger.error("Gemma query failed: %s", exc)
+        return safe_parse(_mock_response(prompt))
 
 def _mock_response(prompt: str) -> str:
     """Return realistic structured JSON mock responses for critical infrastructure."""
