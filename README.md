@@ -14,17 +14,17 @@ graph TD
     B --> C{Anomaly?}
     C -- Yes --> D[Event Buffer]
     
-    subgraph Predictive Intelligence Layer
+    subgraph "Predictive Intelligence Layer"
         D --> D1[Temporal Memory]
         D1 --> E[Gemma 4 Multi-Agent Pipeline]
         
-        subgraph Reasoning & Planning
+        subgraph "Reasoning & Planning"
             E1[🩺 Reasoning Agent] -- Reasoning Trace --> E2[🔧 Command Agent]
             E2 -- Tool Use --> T[Tooling Layer]
             T -- Simulation --> E1
         end
         
-        subgraph Grounding (RAG)
+        subgraph "Grounding (RAG)"
             K[Experience Base] -- Retrieve --> E1
         end
     end
