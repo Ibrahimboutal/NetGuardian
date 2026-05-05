@@ -65,45 +65,44 @@ def execute_agent_tool(tool_call_str: str):
 
 def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     """
-    Visible Iterative Reasoning Pipeline:
-    1. Retrieval -> Initial Hypothesis (Belief T1)
-    2. Tool Call -> Belief Evolution (Belief T2)
-    3. Trade-off Reasoning -> Final Decision
+    Adaptive Agentic Pipeline v5:
+    1. Grounding -> Initial Diagnosis (T1)
+    2. Tool Execution -> Belief Evolution (T2)
+    3. [Adaptive] Second Analysis Pass (if needed)
+    4. Tactical Intervention (Trade-offs)
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
 
-    # Step 1: Grounded Retrieval
+    # Step 1: Explainable Retrieval
     experience = retrieve_experience(str(anomaly_event))
     pattern = memory.detect_pattern()
     context = memory.get_context()
 
-    # Step 2: Initial Reasoning (Belief T1)
-    logger.info("🩺 Agent 1: Initial Hypothesis (T1)...")
+    # Step 2: Initial Diagnosis (T1)
     initial_diagnosis = run_diagnosis(anomaly_event, context, pattern, experience)
-    initial_belief = {
-        "risk_level": initial_diagnosis.get("risk_level"),
-        "confidence": initial_diagnosis.get("confidence"),
-        "predicted_next_failure": initial_diagnosis.get("predicted_next_failure")
-    }
+    initial_confidence = initial_diagnosis.get("confidence", 0.5)
 
-    # Step 3: Tool Use & Belief Evolution (Belief T2)
+    # Step 3: Tool Execution & Adaptive Pass
     tool_output = None
     refined_diagnosis = initial_diagnosis
+    confidence_delta = 0.0
+    adaptive_pass = False
+
     if initial_diagnosis.get("tool_call"):
         tool_output = execute_agent_tool(initial_diagnosis["tool_call"])
         if tool_output:
-            logger.info("🔬 Agent 1: Belief Evolution (T2)...")
             refined_diagnosis = run_diagnosis(anomaly_event, context, pattern, experience, tool_output=tool_output)
+            
+            # Adaptive second pass if AI is still uncertain
+            if refined_diagnosis.get("needs_more_analysis"):
+                logger.info("🔄 Agent 1: Initiating Adaptive Second Pass...")
+                adaptive_pass = True
+                refined_diagnosis = run_diagnosis(anomaly_event, context, pattern, experience, tool_output=tool_output)
 
-    refined_belief = {
-        "risk_level": refined_diagnosis.get("risk_level"),
-        "confidence": refined_diagnosis.get("confidence"),
-        "predicted_next_failure": refined_diagnosis.get("predicted_next_failure")
-    }
+            confidence_delta = round(refined_diagnosis.get("confidence", 0.5) - initial_confidence, 2)
 
-    # Step 4: Tactical Intervention with Trade-off Analysis
-    logger.info("🔧 Agent 2: Trade-off Planning...")
+    # Step 4: Final Tactical Planning
     recommendation = run_recommendation(anomaly_event, refined_diagnosis, context, pattern)
     
     # Execute mitigation
@@ -114,15 +113,16 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
             if res:
                 action_results.append(res)
 
-    # Step 5: Final Briefing
-    logger.info("📢 Agent 3: Final Briefing...")
+    # Step 5: Briefing
     explanation = run_explanation(anomaly_event, refined_diagnosis, recommendation, context, pattern)
 
     result = {
         **anomaly_event,
         "belief_evolution": {
-            "initial": initial_belief,
-            "refined": refined_belief,
+            "initial_confidence": initial_confidence,
+            "refined_confidence": refined_diagnosis.get("confidence", 0.5),
+            "confidence_delta": confidence_delta,
+            "adaptive_pass_triggered": adaptive_pass,
             "tool_used": initial_diagnosis.get("tool_call")
         },
         "grounded_experience": experience,

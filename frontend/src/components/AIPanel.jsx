@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Zap, Activity, Info, CheckCircle, TrendingUp, History } from "lucide-react";
+import { Brain, ShieldCheck, Zap, Activity, Info, CheckCircle, TrendingUp, History, RefreshCcw, Layers } from "lucide-react";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },
@@ -40,7 +40,7 @@ export default function AIPanel({ incident, thinking }) {
       <div className="panel-header">
         <div className="panel-title">
           <Activity size={14} className="panel-title-icon" color="#06b6d4" />
-          Predictive Resilience Engine v4
+          Predictive Resilience Engine v5
         </div>
         {thinking && (
           <div className="thinking-dots">
@@ -72,18 +72,18 @@ export default function AIPanel({ incident, thinking }) {
             <div className="ai-empty-icon">🛡️</div>
             <div className="ai-empty-text">
               <strong>Offline AI Sentinel</strong><br />
-              Predicting cascading infrastructure failures.<br />
-              Iterative reasoning active.
+              Probabilistic infrastructure reasoning.<br />
+              Adaptive multi-pass active.
             </div>
           </div>
         )}
 
         {thinking && !hasAgents && (
           <div>
-            <ThinkingIndicator label="🧠 RAG Grounding in past case files…" />
-            <ThinkingIndicator label="🩺 Forming initial hypothesis (Belief T1)…" />
+            <ThinkingIndicator label="🧠 Explainable RAG grounding in past cases…" />
+            <ThinkingIndicator label="🩺 Forming probabilistic hypotheses (T1)…" />
             <ThinkingIndicator label="🔬 Evolving belief via tool simulation (T2)…" />
-            <ThinkingIndicator label="🔧 Weighing tactical trade-offs…" />
+            <ThinkingIndicator label="🔄 Initiating adaptive second reasoning pass…" />
           </div>
         )}
 
@@ -95,11 +95,18 @@ export default function AIPanel({ incident, thinking }) {
               border: `1px solid rgba(${explanation.status_color === 'red' ? '239,68,68' : '234,179,8'}, 0.2)`,
               borderRadius: 8, padding: "10px 12px", marginBottom: 14
             }}>
-              <div style={{ fontSize: 10, color: explanation.status_color === 'red' ? '#ef4444' : '#eab308', fontWeight: 700, marginBottom: 4, textTransform: "uppercase" }}>
-                Status: {diagnosis.risk_level || "Investigating"}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontSize: 10, color: explanation.status_color === 'red' ? '#ef4444' : '#eab308', fontWeight: 700, textTransform: "uppercase" }}>
+                    Status: {diagnosis.risk_level || "Investigating"}
+                </div>
+                {evolution?.adaptive_pass_triggered && (
+                   <span style={{ fontSize: 8, background: "#06b6d4", color: "#000", padding: "1px 4px", borderRadius: 2, fontWeight: 700, display: "flex", alignItems: "center", gap: 2 }}>
+                     <RefreshCcw size={8} /> ADAPTIVE 2ND PASS
+                   </span>
+                )}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
-                Intervened: {diagnosis.predicted_next_failure || "Unknown Cascade"}
+                Proactive Intervention: {diagnosis.predicted_next_failure || "Unknown Cascade"}
               </div>
             </div>
 
@@ -107,22 +114,25 @@ export default function AIPanel({ incident, thinking }) {
             {mitigations.length > 0 && (
                <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(16,185,129,0.05)", borderRadius: 6, borderLeft: "3px solid #10b981" }}>
                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4 }}>
-                  <CheckCircle size={10} /> PROACTIVE PREVENTION EXECUTED
+                  <CheckCircle size={10} /> AUTONOMOUS MITIGATION SUCCESSFUL
                </div>
                <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{mitigations[0].intervention}</div>
                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>Target: {mitigations[0].target}</div>
              </div>
             )}
 
-            {/* Experience Grounding (Provable) */}
+            {/* Grounding (Interpretability) */}
             {experience.id && (
               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, border: "1px solid rgba(6,182,212,0.2)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4" }}>GROUNDED CASE: {experience.id}</div>
-                    <div style={{ fontSize: 9, color: "#06b6d4" }}>SIMILARITY: {(experience.similarity * 100).toFixed(0)}%</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4" }}>GROUNDED CASE: {experience.id} ({(experience.similarity * 100).toFixed(0)}% MATCH)</div>
                 </div>
                 <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{experience.name}</div>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{experience.description}</div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                    {experience.why_matched?.map((tag, i) => (
+                       <span key={i} style={{ fontSize: 8, padding: "1px 5px", background: "rgba(6,182,212,0.1)", color: "#06b6d4", borderRadius: 10 }}>{tag}</span>
+                    ))}
+                </div>
               </div>
             )}
 
@@ -133,48 +143,64 @@ export default function AIPanel({ incident, thinking }) {
         {hasAgents && activeTab === "diagnosis" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             
-            {/* Belief Evolution Visualizer */}
+            {/* Probabilistic Hypotheses */}
+            {diagnosis.hypotheses && (
+               <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 4 }}>
+                    <Layers size={10} /> Probabilistic Hypotheses
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {diagnosis.hypotheses.map((h, i) => (
+                       <div key={i} style={{ 
+                         padding: "6px 8px", background: i === 0 ? "rgba(6,182,212,0.05)" : "#0f172a", 
+                         borderRadius: 4, border: `1px solid ${i === 0 ? "#06b6d4" : "#1e2d4a"}`,
+                         display: "flex", justifyContent: "space-between", alignItems: "center"
+                       }}>
+                          <div style={{ fontSize: 10, color: "#f1f5f9", fontWeight: i === 0 ? 600 : 400 }}>{h.node}</div>
+                          <div style={{ fontSize: 9, color: i === 0 ? "#06b6d4" : "#64748b" }}>{(h.confidence * 100).toFixed(0)}% Conf.</div>
+                       </div>
+                    ))}
+                  </div>
+               </div>
+            )}
+
+            {/* Belief Evolution & Confidence Delta */}
             {evolution && (
-              <div style={{ marginBottom: 4 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 4 }}>
-                  <TrendingUp size={10} /> Belief Evolution (Iterative Reasoning)
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}><TrendingUp size={10} /> Internal Belief Evolution</div>
+                  <div style={{ color: evolution.confidence_delta >= 0 ? "#10b981" : "#ef4444" }}>
+                    {evolution.confidence_delta >= 0 ? "+" : ""}{evolution.confidence_delta} CONFIDENCE DELTA
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                    <div style={{ flex: 1, padding: 8, background: "#0f172a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
-                      <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>T1: HYPOTHESIS</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.initial.risk_level} Risk</div>
-                      <div style={{ fontSize: 9, color: "#94a3b8" }}>{evolution.initial.confidence} Confidence</div>
+                      <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>T1 HYPOTHESIS</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.initial_confidence}</div>
                    </div>
                    <div style={{ color: "#334155" }}>→</div>
                    <div style={{ flex: 1, padding: 8, background: "rgba(6,182,212,0.05)", borderRadius: 4, border: "1px solid #06b6d4" }}>
-                      <div style={{ fontSize: 8, color: "#06b6d4", marginBottom: 2 }}>T2: REFINED (POST-TOOL)</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.refined.risk_level} Risk</div>
-                      <div style={{ fontSize: 9, color: "#06b6d4" }}>{evolution.refined.confidence} Confidence</div>
+                      <div style={{ fontSize: 8, color: "#06b6d4", marginBottom: 2 }}>T2 REFINED</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.refined_confidence}</div>
                    </div>
                 </div>
               </div>
             )}
 
-            <div className="ai-data-row">
-              <span className="ai-label">PREDICTED NEXT FAILURE:</span>
-              <span className="ai-value" style={{ color: "#ef4444" }}>{diagnosis.predicted_next_failure}</span>
-            </div>
-
             {/* Simulation Block */}
             {simulation && (
                <div style={{ padding: "8px 10px", background: "rgba(245,158,11,0.05)", borderRadius: 6, border: "1px dashed rgba(245,158,11,0.3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>SIMULATION DATA (RE-GROUNDED T2)</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>SIMULATION GROUNDING</div>
                     <Zap size={10} color="#f59e0b" />
                   </div>
                   <div style={{ fontSize: 11, color: "#f1f5f9" }}><strong>Outcome:</strong> {simulation.predicted_outcome}</div>
-                  <div style={{ fontSize: 10, color: "#94a3b8" }}>Critical failure window: {simulation.time_to_critical_failure}</div>
+                  <div style={{ fontSize: 10, color: "#94a3b8" }}>Cascade Window: {simulation.time_to_critical_failure}</div>
                </div>
             )}
 
-            {/* Reasoning Trace */}
             <div style={{ marginTop: 4 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" }}>Internal reasoning Trace</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" }}>Reasoning Trace</div>
               <div style={{ 
                 padding: 10, background: "#0a0e1a", borderRadius: 6, border: "1px solid #1e2d4a",
                 fontSize: 11, color: "#cbd5e1", lineHeight: 1.5, fontStyle: "italic"
@@ -188,7 +214,7 @@ export default function AIPanel({ incident, thinking }) {
         {hasAgents && activeTab === "recommendation" && (
           <div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 9, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>COMMAND DECISION</div>
+              <div style={{ fontSize: 9, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>TACTICAL DECISION</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>{recommendation.decision}</div>
             </div>
 
@@ -243,7 +269,7 @@ export default function AIPanel({ incident, thinking }) {
               textTransform: "uppercase"
             }}>
               <History size={10} color="#06b6d4" />
-              Event Timeline (Last {incident.memory.length})
+              Event History Timeline
             </div>
             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
               {incident.memory.map((m, i) => (
