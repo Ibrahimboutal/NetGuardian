@@ -1,6 +1,7 @@
 import json
 import logging
 import numpy as np
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,20 @@ INCIDENT_PATTERNS = [
         "signature": ["throughput_mbps", "latency_ms", "connections", "bgp", "prefix"],
         "remedy": "Reset BGP peerings and enforce RPKI validation."
     }
-    # ... (rest of cases would follow similar structure)
 ]
 
 def get_simple_embedding(text: str, vocab: list) -> np.ndarray:
-    """Creates a simple frequency-based embedding vector."""
+    """
+    Creates a frequency-based (Bag-of-Words) embedding vector.
+    Counts occurrences of each vocabulary word in the text.
+    """
     text = text.lower()
-    return np.array([1 if word in text else 0 for word in vocab])
+    # Use word boundary search to avoid partial matches (e.g., 'port' in 'portable')
+    counts = []
+    for word in vocab:
+        count = len(re.findall(r'\b' + re.escape(word.lower()) + r'\b', text))
+        counts.append(count)
+    return np.array(counts)
 
 def cosine_similarity(v1, v2):
     mag1 = np.linalg.norm(v1)
@@ -58,7 +66,7 @@ def cosine_similarity(v1, v2):
 
 def retrieve_experience(event_description: str) -> dict:
     """
-    RAG Upgrade: Uses Cosine Similarity on Keyword Embeddings.
+    RAG Upgrade: Uses Cosine Similarity on Term Frequency (TF) Embeddings.
     """
     # Build vocab from all signatures
     vocab = set()
@@ -84,6 +92,9 @@ def retrieve_experience(event_description: str) -> dict:
         max_sim = 0.1
         
     best_match["similarity"] = round(max_sim, 2)
-    best_match["why_matched"] = [word for word in vocab if query_vec[vocab.index(word)] > 0 and word in " ".join(best_match["signature"])]
+    
+    # explainability
+    matched_indices = np.where(query_vec > 0)[0]
+    best_match["why_matched"] = [vocab[i] for i in matched_indices if vocab[i] in " ".join(best_match["signature"])]
     
     return best_match

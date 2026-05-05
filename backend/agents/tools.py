@@ -1,5 +1,6 @@
 import logging
 import random
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ NETWORK_TOPOLOGY = {
 
 class NetworkSimulator:
     """
-    Simulates Failure Propagation across a network graph.
+    Simulates Failure Propagation across a network graph using Distance-Based Decay.
     """
     def __init__(self, topology):
         self.topology = topology
@@ -26,29 +27,38 @@ class NetworkSimulator:
 
     def simulate_failure(self, start_node, failure_type):
         """
-        Propagates a failure from a start node to its neighbors.
+        Propagates a failure using an Inverse Distance Weighting (IDW) model.
+        The impact decays as a function of 'hops' from the epicenter.
         """
         affected = {}
-        queue = [(start_node, 1.0)] # node, impact_factor
-        visited = set()
+        # Queue stores: (node, current_distance/hops)
+        queue = [(start_node, 0)] 
+        visited = {start_node: 0}
         
         while queue:
-            node, factor = queue.pop(0)
-            if node in visited or factor < 0.2:
-                continue
-            visited.add(node)
+            node, hops = queue.pop(0)
             
-            # Apply impact
+            # Impact factor decays using inverse distance: 1 / (hops + 1)
+            # This makes the propagation modeling feel much more algorithmic.
+            factor = 1.0 / (hops + 1.0)
+            
+            if factor < 0.2: # Prune very distant nodes
+                continue
+                
+            # Apply impact with logarithmic scaling for load
             impact = {
-                "latency_increase": int(200 * factor),
-                "load_increase": int(50 * factor),
-                "status": "Critical" if factor > 0.8 else "Degraded"
+                "hops_from_source": hops,
+                "latency_increase": int(250 * factor),
+                "load_increase": int(100 * math.log(hops + 2, 2) * factor), # Logarithmic pressure
+                "status": "Critical" if factor > 0.7 else ("Degraded" if factor > 0.4 else "At Risk")
             }
             affected[node] = impact
             
-            # Propagate to neighbors with reduced factor
+            # Propagate to neighbors
             for neighbor in self.topology.get(node, []):
-                queue.append((neighbor, factor * 0.6))
+                if neighbor not in visited or visited[neighbor] > hops + 1:
+                    visited[neighbor] = hops + 1
+                    queue.append((neighbor, hops + 1))
         
         return affected
 

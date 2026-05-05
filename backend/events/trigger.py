@@ -76,7 +76,7 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     Ultimate Adaptive Pipeline:
     1. Structured Retrieval
     2. Hypothesis Formation (Initial)
-    3. Tool Execution & Adaptive Refinement (Second Pass)
+    3. Tool Execution & Adaptive Refinement (Branch on Confidence)
     4. Tactical Command & Trade-offs
     """
     if not anomaly_event.get("anomaly"):
@@ -89,25 +89,31 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
 
     # Step 2: Initial Diagnosis (T1)
     initial_diagnosis = run_diagnosis(anomaly_event, context, str(pattern_data), experience, analysis_depth="INITIAL_HYPOTHESIS")
-    initial_confidence = initial_diagnosis.get("confidence", 0.5)
+    initial_confidence = float(initial_diagnosis.get("confidence", 0.5))
 
-    # Step 3: Tool Execution & Adaptive Pass (T2)
+    # Step 3: Branching Tool Execution & Adaptive Pass (T2)
     tool_output = None
     refined_diagnosis = initial_diagnosis
     confidence_delta = 0.0
     adaptive_pass = False
 
-    if initial_diagnosis.get("tool_call"):
+    # Logic: Only run expensive second pass if confidence is low OR AI explicitly asks
+    needs_refinement = initial_confidence < 0.6 or initial_diagnosis.get("needs_more_analysis")
+
+    if initial_diagnosis.get("tool_call") and needs_refinement:
         tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
         if tool_output:
-            logger.info("🔬 Agent 1: Initiating Adaptive Refinement (Second Pass)...")
+            logger.info(f"🔬 Low Confidence ({initial_confidence}): Initiating Adaptive Refinement pass...")
             adaptive_pass = True
             refined_diagnosis = run_diagnosis(
                 anomaly_event, context, str(pattern_data), experience, 
                 tool_output=tool_output, 
                 analysis_depth="SECOND_PASS_REFINEMENT"
             )
-            confidence_delta = round(float(refined_diagnosis.get("confidence", 0.5)) - float(initial_confidence), 2)
+            confidence_delta = round(float(refined_diagnosis.get("confidence", 0.5)) - initial_confidence, 2)
+    elif initial_diagnosis.get("tool_call"):
+        # Even if confidence is high, we might run the tool but skip the re-diagnosis to save compute
+        tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
 
     # Step 4: Tactical Command with Trade-offs
     recommendation = run_recommendation(anomaly_event, refined_diagnosis, context, str(pattern_data))
@@ -131,7 +137,7 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
         **anomaly_event,
         "belief_evolution": {
             "initial_confidence": initial_confidence,
-            "refined_confidence": refined_diagnosis.get("confidence", 0.5),
+            "refined_confidence": float(refined_diagnosis.get("confidence", initial_confidence)),
             "confidence_delta": confidence_delta,
             "adaptive_pass_triggered": adaptive_pass,
             "analysis_depth": refined_diagnosis.get("analysis_depth", "SECOND_PASS" if adaptive_pass else "INITIAL"),

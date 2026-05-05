@@ -84,7 +84,7 @@ export default function AIPanel({ incident, thinking }) {
             <ThinkingIndicator label="🧠 Cosine Similarity RAG grounding (Explainable)…" />
             <ThinkingIndicator label="🩺 Probabilistic Hypothesis: Rolling Feature Analysis…" />
             <ThinkingIndicator label="🔬 Failure Propagation: Graph-based Simulation…" />
-            <ThinkingIndicator label="🔄 ADAPTIVE_PASS: Deep Step-by-Step Refinement…" />
+            <ThinkingIndicator label="🔄 SECOND_PASS: Conditional Deep Refinement (if confidence < 0.6)…" />
           </div>
         )}
 
@@ -275,13 +275,13 @@ export default function AIPanel({ incident, thinking }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                  <div style={{ padding: "8px", background: "#0a0e1a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
                     <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>PRECISION</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>94%</div>
-                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Baseline: 62%</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>87%</div>
+                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Recall: 45%</div>
                  </div>
                  <div style={{ padding: "8px", background: "#0a0e1a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
                     <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>DETECTION LEAD</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>-15.5s</div>
-                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Baseline: +2.0s</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>-3.3s</div>
+                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Baseline (MA): 11.5s Lag</div>
                  </div>
               </div>
            </div>
