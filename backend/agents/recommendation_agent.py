@@ -1,7 +1,7 @@
 from .gemma_client import query_gemma
 
 
-def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "") -> dict:
+def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "", pattern: str = "") -> dict:
     """
     Recommendation Agent — Incident Commander Role.
     Returns: JSON {actions: [{action, priority, difficulty}]}
@@ -19,6 +19,9 @@ TELEMETRY:
 HISTORICAL CONTEXT:
 {context}
 
+TEMPORAL PATTERN DETECTION:
+{pattern}
+
 JSON SCHEMA:
 {{
   "actions": [
@@ -30,16 +33,22 @@ JSON SCHEMA:
   ]
 }}
 
-STRICT CONSTRAINT: Provide exactly 4 prioritized actions. Be direct, authoritative, and purely actionable. No fluff."""
+STRICT CONSTRAINT: 
+1. Think step-by-step: assess the pattern, prioritize based on severity, then select remediations.
+2. If the pattern is 'CASCADING', prioritize isolation over recovery.
+3. Provide exactly 4 prioritized actions. Be direct, authoritative, and purely actionable."""
 
-    result = query_gemma(prompt)
+    required_keys = ["actions"]
+    result = query_gemma(prompt, required_keys=required_keys)
     
     # Failure handling
-    if "error" in result or not result.get("actions"):
+    if "error" in result:
         return {
             "actions": [
-                { "action": "Initiate manual telemetry verification", "priority": "CRITICAL", "difficulty": "Easy" },
-                { "action": "Consult emergency runbooks for detected metric spikes", "priority": "HIGH", "difficulty": "Medium" }
+                { "action": "EMERGENCY: Isolate affected nodes (AI Validation Failed)", "priority": "CRITICAL", "difficulty": "Easy" },
+                { "action": "Initiate snapshot and forensic dump", "priority": "HIGH", "difficulty": "Medium" },
+                { "action": "Consult emergency runbooks", "priority": "HIGH", "difficulty": "Medium" },
+                { "action": "Manual audit of recent telemetry", "priority": "MEDIUM", "difficulty": "Hard" }
             ]
         }
         

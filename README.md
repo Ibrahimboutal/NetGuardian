@@ -2,7 +2,7 @@
 
 > **"NetGuardian operates even when the network itself is failing."**
 >
-> **Enterprise-Grade Incident Response** — Real-time anomaly detection powered by local, offline multi-agent AI (Gemma 4). Engineered for secure, isolated environments where cloud dependencies are a liability.
+> **Disaster-Grade Incident Response** — Real-time anomaly detection powered by local, offline multi-agent AI (Gemma 4). Engineered for remote utility grids, disaster recovery zones, and critical infrastructure where cloud dependency is a liability.
 
 ---
 
@@ -10,22 +10,27 @@
 
 ```mermaid
 graph TD
-    A[Telemetry Stream] --> B[Isolation Forest Detector]
+    A[Raw Telemetry Stream] --> B[Isolation Forest Detector]
     B --> C{Anomaly Detected?}
-    C -- Yes --> D[Event Bus + AnomalyMemory]
+    C -- Yes --> D[Event Bus + Temporal Memory]
     C -- No --> A
     D --> E[Gemma 4 Multi-Agent Pipeline]
     
-    subgraph AI Agents
-        E1[🩺 Technical Analyst] --> E2[🔧 Incident Commander]
+    subgraph Temporal Intelligence
+        D --> D1[Cascading Failure Detector]
+        D1 --> E
+    end
+    
+    subgraph AI Reasoning
+        E --> E1[🩺 Technical Analyst]
+        E1 --> E2[🔧 Incident Commander]
         E2 --> E3[📢 Crisis Communicator]
     end
     
-    E --> E1
-    E3 --> F[Secure Dashboard - Real-time SSE]
+    E3 --> F[Resilient Dashboard - SSE Stream]
     
     style B fill:#1e2d4a,stroke:#3b82f6,color:#fff
-    style D fill:#1e2d4a,stroke:#ef4444,color:#fff
+    style D1 fill:#0f1629,stroke:#f59e0b,color:#fff,stroke-dasharray: 5 5
     style E1 fill:#0f1629,stroke:#06b6d4,color:#fff
     style E2 fill:#0f1629,stroke:#3b82f6,color:#fff
     style E3 fill:#0f1629,stroke:#10b981,color:#fff
@@ -34,17 +39,32 @@ graph TD
 
 ---
 
-## 🏆 The Winning Pitch: "The Resilience Edge"
+## 🏆 The Winning Pitch: "Disaster-Grade Resilience"
 
-**The Problem**: Critical infrastructure (power grids, water systems, defense) cannot rely on cloud-based AI for incident response. Latency and data sovereignty are non-negotiable.
+**The Problem**: In a disaster scenario (flood, earthquake, cyber-attack), the network doesn't just "glitch"—it collapses. Cloud AI is useless when the fiber lines are cut. Humans are overwhelmed by the speed of cascading failures.
 
-**The Solution**: **NetGuardian**. A 100% offline, agentic response system that lives on the edge.
+**The Solution**: **NetGuardian**. A 100% offline system that doesn't just react to spikes—it **predicts cascades**.
 
-### Demo Script / Talk Track:
-1. **The Watchman**: "Notice the live stream. Our Isolation Forest model is establishing a baseline for 'normal'. No rules, just pure machine learning."
-2. **The Breach**: "I'm injecting a scripted anomaly now. Within milliseconds, the 'Technical Analyst' agent has decoded the raw telemetry into a structured diagnosis."
-3. **The Commander**: "But knowing *what* happened isn't enough. Our 'Incident Commander' has already prioritized 4 tactical remediations, while the 'Communicator' drafted an executive summary for the C-suite."
-4. **The Memory**: "Look at the 'Agent Memory' footer. NetGuardian isn't just reacting; it's learning from the last 5 incidents to provide better context for the next one."
+### The Dramatic Demo Flow:
+1. **The Watchman**: Establishing a baseline in a remote power grid.
+2. **The First Strike**: A minor traffic spike is detected. The system logs it.
+3. **The Cascade**: Seconds later, a packet loss event occurs.
+4. **The Intelligence**: NetGuardian’s **Temporal Intelligence** recognizes the pattern. It doesn't just say "latency is high"; it screams **"CASCADING FAILURE DETECTED"**.
+5. **The Handoff**: The agents shift from "optimization" mode to "containment" mode, isolating the failing node before the entire grid goes dark.
+
+---
+
+## 🧠 WOW Feature: Temporal Pattern Recognition
+
+Unlike standard monitors, NetGuardian analyzes **sequences, not just snapshots**. 
+Our memory system correlates events over time:
+- **Spike → Loss → Drop**: Triggers a **Cascading Failure Alert**.
+- **Repeated Spike**: Triggers a **Persistent Incident Warning**.
+
+This allows our agents to perform **Multi-Step Reasoning**:
+1. **Classify**: Identify the technical signature.
+2. **Infer**: Predict the next link in the failure chain.
+3. **Remediate**: Prioritize isolation over performance.
 
 ---
 
@@ -56,82 +76,25 @@ graph TD
 |------|---------|
 | Python 3.10+ | Backend |
 | Node 18+ | Frontend |
-| [Ollama](https://ollama.com) | Local Gemma AI (optional — mock fallback included) |
+| [Ollama](https://ollama.com) | Local Gemma AI |
 
-### 2. Backend
+### 2. Launch Stack
 
 ```powershell
-# Install dependencies
+# Start Backend
 pip install -r requirements.txt
+uvicorn backend.main:app --reload
 
-# Start the API server (from repo root)
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 3. Frontend
-
-```powershell
+# Start Frontend
 cd frontend
-npm install
 npm run dev
-# Opens at http://localhost:5173
 ```
-
-### 4. AI (Optional — Ollama)
-
-```powershell
-# Install Ollama from https://ollama.com, then:
-ollama pull gemma3
-# Ollama runs automatically at http://localhost:11434
-```
-
-> ⚡ **No Ollama? No problem.** The system includes a high-fidelity mock fallback so the demo works 100% offline without any AI setup.
-
----
-
-## 📁 Project Structure
-
-```
-netguardian/
-├── backend/
-│   ├── main.py                   # FastAPI entrypoint
-│   ├── anomaly/
-│   │   ├── detector.py           # Isolation Forest
-│   ├── agents/
-│   │   ├── gemma_client.py       # Ollama client + Mock logic
-│   │   ├── diagnosis_agent.py    # Technical Analyst Role
-│   │   ├── recommendation_agent.py # Incident Commander Role
-│   │   └── explanation_agent.py  # Crisis Communicator Role
-│   ├── events/
-│   │   └── trigger.py            # Event Bus + AnomalyMemory
-│   └── api/
-│       └── routes.py             # REST + SSE endpoints
-├── frontend/
-│   └── src/
-│       ├── components/
-│       │   ├── AIPanel.jsx       # Structured Multi-Agent UI
-│       │   └── ...
-├── requirements.txt
-└── docker-compose.yml
-```
-
----
-
-## 🧠 AI Agent Pipeline (Structured JSON)
-
-| Agent | Role | Output Schema |
-|-------|------|---------------|
-| 🩺 **Technical Analyst** | Forensic Analysis | `issue`, `root_cause`, `confidence`, `impact` |
-| 🔧 **Incident Commander** | Remediations | `actions: [{action, priority, difficulty}]` |
-| 📢 **Crisis Communicator** | Stakeholder Management | `summary`, `eta_guess`, `status_color` |
 
 ---
 
 ## ⚠️ Why NetGuardian Wins
 
-> **"NetGuardian operates even when the network itself is failing."**
-
-- **100% Offline**: No API keys, no data leaks, no internet required. Zero cloud dependency.
-- **Agentic Memory**: Maintains state across incidents for smarter, context-aware responses and temporal reasoning.
-- **Enterprise-Grade**: Structured JSON output ensures the AI can be integrated with other automated systems (firewalls, ticket systems).
-- **Sub-Second Reasoning**: Optimized for local Gemma models, ensuring defense-grade latency.
+- **100% Offline**: Zero cloud dependency. Operates in isolated military, utility, and disaster zones.
+- **Multi-Step Reasoning**: Agents don't just "hallucinate" answers; they follow a structured mental model (Classify → Infer → Act).
+- **Schema Hardened**: Every AI output is validated against strict schemas. If the model fails, the system’s safety fallbacks take over.
+- **Defense-Grade Latency**: Sub-second reasoning on consumer hardware.

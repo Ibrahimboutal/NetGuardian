@@ -8,27 +8,38 @@ DEFAULT_MODEL = "gemma3"
 
 logger = logging.getLogger(__name__)
 
-def safe_parse(text: str) -> dict:
+def validate_schema(data: dict, required_keys: list) -> bool:
+    """Ensure all required keys are present in the AI output."""
+    if not isinstance(data, dict):
+        return False
+    return all(key in data for key in required_keys)
+
+def safe_parse(text: str, required_keys: list = None) -> dict:
     """
     Extract and parse JSON from LLM output. 
-    Handles conversational fluff and malformed strings.
+    Handles conversational fluff, malformed strings, and key validation.
     """
+    parsed = {"error": "invalid_json"}
     try:
         # Attempt direct parse first
-        return json.loads(text)
+        parsed = json.loads(text)
     except Exception:
         # Search for JSON block using regex
         try:
             match = re.search(r'\{.*\}', text, re.DOTALL)
             if match:
-                return json.loads(match.group(0))
+                parsed = json.loads(match.group(0))
         except Exception:
-            pass
+            parsed = {"error": "regex_failed", "raw": text}
     
-    # Return indicator of failure
-    return {"error": "invalid_json", "raw": text}
+    # Validation step
+    if required_keys and not validate_schema(parsed, required_keys):
+        logger.warning("Schema validation failed for AI output. Keys missing.")
+        return {"error": "schema_mismatch", "raw": parsed}
+        
+    return parsed
 
-def query_gemma(prompt: str, model: str = DEFAULT_MODEL) -> dict:
+def query_gemma(prompt: str, required_keys: list = None, model: str = DEFAULT_MODEL) -> dict:
     """
     Send a prompt to a locally-running Ollama model and return the parsed JSON response.
     Falls back gracefully if Ollama is not running or output is invalid.
@@ -41,10 +52,10 @@ def query_gemma(prompt: str, model: str = DEFAULT_MODEL) -> dict:
         )
         response.raise_for_status()
         raw_text = response.json().get("response", "").strip()
-        return safe_parse(raw_text)
+        return safe_parse(raw_text, required_keys)
     except Exception as exc:
         logger.error("Gemma query failed: %s", exc)
-        return safe_parse(_mock_response(prompt))
+        return safe_parse(_mock_response(prompt), required_keys)
 
 def _mock_response(prompt: str) -> str:
     """Return realistic structured JSON mock responses for critical infrastructure."""
