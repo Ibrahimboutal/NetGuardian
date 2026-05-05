@@ -6,17 +6,28 @@
 
 ## 🏗️ Architecture
 
-```
-[ CSV / Simulated Stream ]
-         ↓
-[ Isolation Forest Detector ]
-         ↓
-[ Event Bus / Alert Trigger ]
-         ↓
-[ Gemma 4 AI Agents (Ollama) ]
-  🩺 Diagnosis → 🔧 Recommendation → 📢 Explanation
-         ↓
-[ React Dashboard (SSE) ]
+```mermaid
+graph TD
+    A[CSV / Simulated Stream] --> B[Isolation Forest Detector]
+    B --> C{Anomaly Detected?}
+    C -- Yes --> D[Event Bus / Alert Trigger]
+    C -- No --> A
+    D --> E[Gemma 4 Multi-Agent Pipeline]
+    
+    subgraph AI Agents
+        E1[🩺 Diagnosis Agent] --> E2[🔧 Recommendation Agent]
+        E2 --> E3[📢 Explanation Agent]
+    end
+    
+    E --> E1
+    E3 --> F[React Dashboard - SSE Stream]
+    
+    style B fill:#1e2d4a,stroke:#3b82f6,color:#fff
+    style D fill:#1e2d4a,stroke:#ef4444,color:#fff
+    style E1 fill:#0f1629,stroke:#06b6d4,color:#fff
+    style E2 fill:#0f1629,stroke:#3b82f6,color:#fff
+    style E3 fill:#0f1629,stroke:#10b981,color:#fff
+    style F fill:#0a0e1a,stroke:#3b82f6,color:#fff,stroke-width:2px
 ```
 
 ---
