@@ -1,8 +1,8 @@
-# 🛡️ NetGuardian — AI Resilience for Critical Infrastructure
+# 🛡️ NetGuardian — Edge AI for Disaster-Prone Infrastructure
 
-> **"NetGuardian operates even when the network itself is failing."**
+> **"Resilience at the edge, even when the cloud is dark."**
 >
-> **Predictive Incident Response** — A 100% offline, agentic defense system powered by local multi-agent AI (Gemma 4). Engineered to **predict and prevent** cascading failures in remote utility grids, disaster zones, and critical infrastructure.
+> **Disaster-Grade Resilience** — A 100% offline, agentic defense system engineered specifically for **remote telecom networks, utility grids, and disaster-recovery zones.** Powered by local multi-agent AI (Gemma 4).
 
 ---
 

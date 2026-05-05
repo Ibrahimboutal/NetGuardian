@@ -1,83 +1,78 @@
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import IsolationForest
-from .preprocess import load_dataset, extract_features, row_to_dict, FEATURE_COLS
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Severity thresholds (tunable)
-SEVERITY_RULES = {
-    "latency_ms":       {"high": 200, "medium": 80},
-    "packet_loss_pct":  {"high": 10,  "medium": 3},
-    "jitter_ms":        {"high": 30,  "medium": 10},
-    "throughput_mbps":  {"high": 300, "medium": 600},  # low is bad
-    "connections":      {"high": 800, "medium": 400},
-}
-
-
 class AnomalyDetector:
-    def __init__(self, contamination: float = 0.05, n_estimators: int = 100):
+    """
+    Sentinel-Grade Anomaly Detector.
+    Uses Isolation Forest with Temporal Feature Enrichment.
+    """
+    def __init__(self):
+        # 25 features from the new FeatureEngine
         self.model = IsolationForest(
-            contamination=contamination,
-            n_estimators=n_estimators,
-            random_state=42,
+            n_estimators=100,
+            contamination=0.1,
+            random_state=42
         )
-        self._trained = False
+        self.is_trained = False
+        self.training_data = []
+        self.required_samples = 20  # Warm-up period
 
-    def fit(self, df: pd.DataFrame):
-        """Train the Isolation Forest on the full dataset."""
-        X = extract_features(df)
-        self.model.fit(X)
-        self._trained = True
-        logger.info("AnomalyDetector trained on %d samples.", len(df))
+    def train_step(self, features: np.ndarray):
+        """Online training/adaptation."""
+        self.training_data.append(features)
+        
+        # Keep training data windowed to avoid memory leak
+        if len(self.training_data) > 500:
+            self.training_data.pop(0)
 
-    def predict_row(self, row: pd.Series) -> dict:
+        if len(self.training_data) >= self.required_samples:
+            X = np.array(self.training_data)
+            self.model.fit(X)
+            self.is_trained = True
+
+    def predict(self, features: np.ndarray) -> tuple:
         """
-        Predict whether a single row is anomalous.
-        Returns a structured event dict.
+        Returns (is_anomaly, score, severity)
         """
-        if not self._trained:
-            raise RuntimeError("Detector not trained. Call fit() first.")
+        if not self.is_trained:
+            self.train_step(features)
+            return False, 0.0, "normal"
 
-        X = np.array([[row[col] for col in FEATURE_COLS]])
-        score = float(self.model.decision_function(X)[0])
-        pred = int(self.model.predict(X)[0])  # -1 = anomaly, 1 = normal
-        is_anomaly = pred == -1
-
-        result = row_to_dict(row)
-        result["anomaly"] = is_anomaly
-        result["anomaly_score"] = round(-score, 4)   # higher = more anomalous
-
+        # Reshape for single prediction
+        X = features.reshape(1, -1)
+        
+        # score_samples returns negative values (lower is more anomalous)
+        score = float(self.model.score_samples(X)[0])
+        
+        # IsolationForest decision_function: <0 is anomaly
+        is_anomaly = bool(self.model.predict(X)[0] == -1)
+        
+        # Calculate severity based on score
+        # score usually ranges from -1 to 0
+        severity = "normal"
         if is_anomaly:
-            result["severity"] = self._classify_severity(row)
-            result["primary_metric"] = self._primary_metric(row)
-        else:
-            result["severity"] = "none"
-            result["primary_metric"] = None
+            if score < -0.65:
+                severity = "critical"
+            elif score < -0.55:
+                severity = "high"
+            else:
+                severity = "medium"
 
-        return result
+        # Continuous learning
+        self.train_step(features)
+        
+        return is_anomaly, abs(score), severity
 
-    def _classify_severity(self, row: pd.Series) -> str:
-        """Rule-based severity on top of Isolation Forest output."""
-        if row["latency_ms"] >= SEVERITY_RULES["latency_ms"]["high"]:
-            return "high"
-        if row["packet_loss_pct"] >= SEVERITY_RULES["packet_loss_pct"]["high"]:
-            return "high"
-        if row["jitter_ms"] >= SEVERITY_RULES["jitter_ms"]["high"]:
-            return "high"
-        if row["latency_ms"] >= SEVERITY_RULES["latency_ms"]["medium"]:
-            return "medium"
-        if row["packet_loss_pct"] >= SEVERITY_RULES["packet_loss_pct"]["medium"]:
-            return "medium"
-        return "low"
+# Singleton
+detector = AnomalyDetector()
 
-    def _primary_metric(self, row: pd.Series) -> str:
-        """Identify which metric deviates most from its normal range."""
-        deviations = {
-            "latency_ms": row["latency_ms"] / 15,
-            "packet_loss_pct": row["packet_loss_pct"] / 0.15,
-            "jitter_ms": row["jitter_ms"] / 2.5,
-            "connections": row["connections"] / 142,
-        }
-        return max(deviations, key=deviations.get)
+def check_anomaly(features: np.ndarray) -> dict:
+    is_anomaly, score, severity = detector.predict(features)
+    return {
+        "anomaly": is_anomaly,
+        "anomaly_score": round(score, 4),
+        "severity": severity
+    }
