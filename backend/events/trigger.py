@@ -44,31 +44,20 @@ class AnomalyMemory:
 memory = AnomalyMemory()
 
 def execute_agent_tool(tool_call_str: str):
-    """
-    Parses and executes a tool call like 'simulate_impact(node_id="Router-14", ...)'
-    Returns the tool output.
-    """
     if not tool_call_str:
         return None
-    
     try:
-        # Simple regex to extract function name and args
         match = re.match(r"(\w+)\((.*)\)", tool_call_str)
         if not match:
             return None
-        
         func_name = match.group(1)
         args_str = match.group(2)
-        
-        # Super simple kwarg parser for the demo
         kwargs = {}
         for arg in args_str.split(','):
             if '=' in arg:
                 k, v = arg.split('=')
                 kwargs[k.strip()] = v.strip().strip("'").strip('"')
-        
         if func_name in TOOLS:
-            logger.info(f"⚡ Executing Agent Tool: {func_name}")
             return TOOLS[func_name](**kwargs)
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")
@@ -76,56 +65,71 @@ def execute_agent_tool(tool_call_str: str):
 
 def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     """
-    NO-BS Agentic Pipeline:
-    1. Retrieval -> Initial Diagnosis (Reasoning)
-    2. Tool Execution (Simulation/Query) -> Re-Diagnosis (Refinement)
-    3. Action Planning (Command) -> Mitigation Execution
-    4. Communication
+    Visible Iterative Reasoning Pipeline:
+    1. Retrieval -> Initial Hypothesis (Belief T1)
+    2. Tool Call -> Belief Evolution (Belief T2)
+    3. Trade-off Reasoning -> Final Decision
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
 
-    # Step 1: Grounding
+    # Step 1: Grounded Retrieval
     experience = retrieve_experience(str(anomaly_event))
     pattern = memory.detect_pattern()
     context = memory.get_context()
 
-    # Step 2: Initial Predictive Reasoning
-    logger.info("🩺 Agent 1: Initial Reasoning...")
-    diagnosis = run_diagnosis(anomaly_event, context, pattern, experience)
+    # Step 2: Initial Reasoning (Belief T1)
+    logger.info("🩺 Agent 1: Initial Hypothesis (T1)...")
+    initial_diagnosis = run_diagnosis(anomaly_event, context, pattern, experience)
+    initial_belief = {
+        "risk_level": initial_diagnosis.get("risk_level"),
+        "confidence": initial_diagnosis.get("confidence"),
+        "predicted_next_failure": initial_diagnosis.get("predicted_next_failure")
+    }
 
-    # Step 3: Tool Use Loop (The "Moment of Truth")
+    # Step 3: Tool Use & Belief Evolution (Belief T2)
     tool_output = None
-    if diagnosis.get("tool_call"):
-        tool_output = execute_agent_tool(diagnosis["tool_call"])
+    refined_diagnosis = initial_diagnosis
+    if initial_diagnosis.get("tool_call"):
+        tool_output = execute_agent_tool(initial_diagnosis["tool_call"])
         if tool_output:
-            logger.info("🔬 Agent 1: Refining diagnosis with simulation results...")
-            diagnosis = run_diagnosis(anomaly_event, context, pattern, experience, tool_output=tool_output)
+            logger.info("🔬 Agent 1: Belief Evolution (T2)...")
+            refined_diagnosis = run_diagnosis(anomaly_event, context, pattern, experience, tool_output=tool_output)
 
-    # Step 4: Intervention & Automatic Action
-    logger.info("🔧 Agent 2: Planning Tactical Intervention...")
-    recommendation = run_recommendation(anomaly_event, diagnosis, context, pattern)
+    refined_belief = {
+        "risk_level": refined_diagnosis.get("risk_level"),
+        "confidence": refined_diagnosis.get("confidence"),
+        "predicted_next_failure": refined_diagnosis.get("predicted_next_failure")
+    }
+
+    # Step 4: Tactical Intervention with Trade-off Analysis
+    logger.info("🔧 Agent 2: Trade-off Planning...")
+    recommendation = run_recommendation(anomaly_event, refined_diagnosis, context, pattern)
     
-    # Execute any recommended tools (e.g. mitigation)
+    # Execute mitigation
     action_results = []
     for action in recommendation.get("actions", []):
         if action.get("tool"):
-            res = execute_agent_tool(f"{action['tool']}(action='{action['action']}', target='{diagnosis['predicted_next_failure']}')")
+            res = execute_agent_tool(f"{action['tool']}(action='{action['action']}', target='{refined_diagnosis['predicted_next_failure']}')")
             if res:
                 action_results.append(res)
 
-    # Step 5: Crisis Communication
-    logger.info("📢 Agent 3: Generating Final Briefing...")
-    explanation = run_explanation(anomaly_event, diagnosis, recommendation, context, pattern)
+    # Step 5: Final Briefing
+    logger.info("📢 Agent 3: Final Briefing...")
+    explanation = run_explanation(anomaly_event, refined_diagnosis, recommendation, context, pattern)
 
     result = {
         **anomaly_event,
-        "pattern_detection": pattern,
+        "belief_evolution": {
+            "initial": initial_belief,
+            "refined": refined_belief,
+            "tool_used": initial_diagnosis.get("tool_call")
+        },
         "grounded_experience": experience,
         "simulation_results": tool_output,
         "mitigation_results": action_results,
         "agents": {
-            "diagnosis": diagnosis,
+            "diagnosis": refined_diagnosis,
             "recommendation": recommendation,
             "explanation": explanation,
         },
