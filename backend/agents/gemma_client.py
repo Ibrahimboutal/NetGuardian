@@ -58,35 +58,41 @@ def query_gemma(prompt: str, required_keys: list = None, model: str = DEFAULT_MO
         return safe_parse(_mock_response(prompt), required_keys)
 
 def _mock_response(prompt: str) -> str:
-    """Return realistic structured JSON mock responses for critical infrastructure."""
+    """Return high-fidelity structured JSON mock responses for predictive resilience."""
     prompt_lower = prompt.lower()
     
-    if "forensic analyst" in prompt_lower:
+    # Prediction / Reasoning Agent
+    if "predict" in prompt_lower or "reasoning" in prompt_lower:
         return json.dumps({
-            "issue": "Anomalous Edge Traffic Spikes",
-            "root_cause": "Detection of unauthorized high-volume egress traffic on Port 443 originating from DB-Cluster-04.",
-            "confidence": "92%",
-            "impact": "High. Potential data exfiltration event in progress. Primary firewall throughput reaching 85% capacity."
+            "risk_level": "CRITICAL",
+            "predicted_next_failure": "Router-14 (Edge Backhaul)",
+            "probability_of_cascade": 0.85,
+            "confidence": 0.91,
+            "reasoning_trace": "Observed sequence of Port 443 spikes followed by CPU thermal alerts on DB-Cluster. Historical patterns indicate a 120s window before buffer exhaustion triggers regional isolation.",
+            "tool_call": "simulate_impact(node_id='Router-14', failure_type='buffer_exhaustion')"
         })
     
-    if "incident commander" in prompt_lower:
+    # Mitigation / Command Agent
+    if "commander" in prompt_lower or "mitigate" in prompt_lower:
         return json.dumps({
+            "decision": "Execute Tactical Isolation",
             "actions": [
-                {"action": "Isolate DB-Cluster-04 from outbound internet traffic via ACL update", "priority": "CRITICAL", "difficulty": "Easy"},
-                {"action": "Initiate snapshot and forensic dump of DB-Cluster-04 logs", "priority": "HIGH", "difficulty": "Medium"},
-                {"action": "Deploy deep packet inspection (DPI) on Edge-Router-01", "priority": "MEDIUM", "difficulty": "Hard"},
-                {"action": "Reset service account credentials associated with DB-Cluster-04", "priority": "HIGH", "difficulty": "Medium"}
-            ]
+                {"action": "Isolate DB-Cluster-04 from outbound internet traffic", "priority": "CRITICAL", "tool": "execute_mitigation"},
+                {"action": "Reroute traffic through secondary satellite failover", "priority": "HIGH", "tool": "reroute_traffic"},
+                {"action": "Flush edge router buffers", "priority": "MEDIUM", "tool": "none"}
+            ],
+            "estimated_recovery_impact": "Stabilization within 45 seconds"
         })
     
-    if "crisis communicator" in prompt_lower:
+    # Crisis Communicator
+    if "crisis" in prompt_lower or "communicator" in prompt_lower:
         return json.dumps({
-            "summary": "Our security monitoring systems have detected an unusual pattern of data movement from the core database cluster. We have initiated automated containment protocols to protect system integrity.",
-            "eta_guess": "20 minutes to full containment",
+            "summary": "NetGuardian has predicted and intercepted a cascading buffer overflow targeting the edge backhaul. Tactical isolation of DB-Cluster-04 has been executed to prevent regional blackout.",
+            "eta_guess": "Containment active; stabilization in progress.",
             "status_color": "red"
         })
     
     return json.dumps({
-        "summary": "System monitoring active. No anomalies currently requiring agent intervention.",
+        "summary": "System monitoring active. Predictive models show stable operational baseline.",
         "status_color": "green"
     })

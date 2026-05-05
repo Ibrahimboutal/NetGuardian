@@ -1,7 +1,9 @@
 import logging
+import json
 from backend.agents.diagnosis_agent import run_diagnosis
 from backend.agents.recommendation_agent import run_recommendation
 from backend.agents.explanation_agent import run_explanation
+from backend.agents.knowledge_base import retrieve_experience
 
 logger = logging.getLogger(__name__)
 
@@ -14,24 +16,19 @@ class AnomalyMemory:
     def add(self, event: dict):
         summary = {
             "timestamp": event.get("timestamp"),
-            "issue": event.get("agents", {}).get("diagnosis", {}).get("issue", "Unknown"),
+            "issue": event.get("agents", {}).get("diagnosis", {}).get("risk_level", "Unknown"),
             "severity": event.get("severity")
         }
         self.history.insert(0, summary)
         self.history = self.history[:self.limit]
 
     def detect_pattern(self) -> str:
-        """
-        WOW FEATURE: Analyzes the last 3 events to detect escalating failures.
-        Example: Latency Spike -> Packet Loss -> Node Failure
-        """
         if len(self.history) < 2:
             return "Stable / Baseline establishing."
             
         recent = self.history[:3]
         issues = [h['issue'].lower() for h in recent]
         
-        # Heuristic for cascading failure
         if any("spike" in i for i in issues) and any("loss" in i or "drop" in i for i in issues):
             return "ALERT: Cascading Failure Pattern Detected (Escalation from Spikes to Packet Drops)."
             
@@ -43,7 +40,6 @@ class AnomalyMemory:
     def get_context(self) -> str:
         if not self.history:
             return "[]"
-        import json
         return json.dumps(self.history, indent=2)
 
 # Initialize memory
@@ -51,27 +47,39 @@ memory = AnomalyMemory()
 
 def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     """
-    Event Bus — orchestrates the 3-agent pipeline with pattern awareness.
+    Event Bus — orchestrates the Redesigned Agentic Reasoning Pipeline.
+    1. Retrieval (Grounding)
+    2. Prediction & Reasoning (Agent 1)
+    3. Intervention Planning (Agent 2)
+    4. Stakeholder Communication (Agent 3)
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
 
-    # Step 1: Detect temporal patterns
+    # Step 1: Grounding via Retrieval (RAG)
+    experience = retrieve_experience(str(anomaly_event))
+    logger.info(f"🧠 Retrieved Experience: {experience['name']}")
+
+    # Step 2: Temporal Pattern Analysis
     pattern = memory.detect_pattern()
     context = memory.get_context()
     
-    logger.info("🩺 Running Specialized Diagnosis Agent...")
-    diagnosis = run_diagnosis(anomaly_event, context, pattern)
+    # Step 3: Predictive Reasoning
+    logger.info("🩺 Agent 1: Running Predictive Reasoning...")
+    diagnosis = run_diagnosis(anomaly_event, context, pattern, experience)
 
-    logger.info("🔧 Running Specialized Recommendation Agent...")
+    # Step 4: Intervention & Tool Use
+    logger.info("🔧 Agent 2: Planning Tactical Intervention...")
     recommendation = run_recommendation(anomaly_event, diagnosis, context, pattern)
 
-    logger.info("📢 Running Specialized Explanation Agent...")
+    # Step 5: Crisis Communication
+    logger.info("📢 Agent 3: Generating Crisis Briefing...")
     explanation = run_explanation(anomaly_event, diagnosis, recommendation, context, pattern)
 
     result = {
         **anomaly_event,
         "pattern_detection": pattern,
+        "grounded_experience": experience,
         "agents": {
             "diagnosis": diagnosis,
             "recommendation": recommendation,

@@ -3,53 +3,47 @@ from .gemma_client import query_gemma
 
 def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "", pattern: str = "") -> dict:
     """
-    Recommendation Agent — Incident Commander Role.
-    Returns: JSON {actions: [{action, priority, difficulty}]}
+    Command Agent — Plans tactical interventions and tool use.
     """
     prompt = f"""SYSTEM: You are the Incident Commander for Infrastructure Defense.
-Your role is to provide immediate, high-impact tactical remediations.
-Output strictly valid JSON. No conversational text, no preamble, no fluff.
+Your role is to plan high-impact tactical interventions based on predictive reasoning.
+Output strictly valid JSON. No conversational text.
 
-DIAGNOSIS:
+PREDICTIVE DIAGNOSIS:
 {diagnosis}
 
 TELEMETRY:
 {anomaly_event}
 
-HISTORICAL CONTEXT:
-{context}
-
-TEMPORAL PATTERN DETECTION:
+TEMPORAL PATTERN:
 {pattern}
 
 JSON SCHEMA:
 {{
+  "decision": "Short title of the tactical decision",
   "actions": [
     {{ 
-      "action": "Immediate tactical command", 
-      "priority": "CRITICAL/HIGH/MEDIUM/LOW", 
-      "difficulty": "Easy/Medium/Hard" 
+      "action": "Description", 
+      "priority": "CRITICAL/HIGH/MEDIUM", 
+      "tool": "Optional tool name to execute" 
     }}
-  ]
+  ],
+  "estimated_recovery_impact": "How this prevents the cascade"
 }}
 
-STRICT CONSTRAINT: 
-1. Think step-by-step: assess the pattern, prioritize based on severity, then select remediations.
-2. If the pattern is 'CASCADING', prioritize isolation over recovery.
-3. Provide exactly 4 prioritized actions. Be direct, authoritative, and purely actionable."""
+STRICT CONSTRAINT: If the risk is 'CRITICAL' and pattern is 'CASCADING', prioritize isolation tools."""
 
-    required_keys = ["actions"]
+    required_keys = ["decision", "actions"]
     result = query_gemma(prompt, required_keys=required_keys)
     
-    # Failure handling
+    # Fallback
     if "error" in result:
         return {
+            "decision": "Manual Emergency Override",
             "actions": [
-                { "action": "EMERGENCY: Isolate affected nodes (AI Validation Failed)", "priority": "CRITICAL", "difficulty": "Easy" },
-                { "action": "Initiate snapshot and forensic dump", "priority": "HIGH", "difficulty": "Medium" },
-                { "action": "Consult emergency runbooks", "priority": "HIGH", "difficulty": "Medium" },
-                { "action": "Manual audit of recent telemetry", "priority": "MEDIUM", "difficulty": "Hard" }
-            ]
+                { "action": "Initiate manual node isolation", "priority": "CRITICAL", "tool": "execute_mitigation" }
+            ],
+            "estimated_recovery_impact": "Prevents immediate cascade propagation via manual isolation."
         }
         
     return result

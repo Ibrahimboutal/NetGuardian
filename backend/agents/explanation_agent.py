@@ -3,46 +3,36 @@ from .gemma_client import query_gemma
 
 def run_explanation(anomaly_event: dict, diagnosis: dict, recommendation: dict, context: str = "", pattern: str = "") -> dict:
     """
-    Explanation Agent — Crisis Communicator Role.
-    Returns: JSON {summary, eta_guess, status_color}
+    Communicator Agent — Briefs stakeholders on predictions and actions.
     """
     prompt = f"""SYSTEM: You are the Crisis Communicator for the Network Operations Center.
-Your role is to translate technical findings into a professional narrative for stakeholders.
-Output strictly valid JSON. No conversational text, no preamble, no fluff.
+Your role is to brief stakeholders on intercepted failures and tactical status.
+Output strictly valid JSON. No conversational text.
 
-DIAGNOSIS:
+PREDICTIONS:
 {diagnosis}
 
-RECOMMENDED ACTIONS:
+TACTICAL ACTIONS:
 {recommendation}
-
-HISTORICAL CONTEXT:
-{context}
-
-TEMPORAL PATTERN DETECTION:
-{pattern}
 
 JSON SCHEMA:
 {{
-  "summary": "Professional narrative summary explaining what happened and what we are doing",
-  "eta_guess": "Expected time to mitigation or containment",
-  "status_color": "red (critical) / yellow (degraded) / green (stable)"
+  "summary": "Briefing on the predicted incident and the prevention measures taken",
+  "eta_guess": "Current containment status",
+  "status_color": "red/yellow/green"
 }}
 
-STRICT CONSTRAINT: 
-1. Think step-by-step: summarize the event, explain the remediation, then reassure stakeholders.
-2. If the pattern is 'CASCADING', emphasize the scale and the urgency of the containment.
-3. Use a professional, calm, yet urgent narrative style. Avoid excessive jargon in the summary."""
+STRICT CONSTRAINT: Focus on how the system PREVENTED a larger failure through proactive reasoning."""
 
-    required_keys = ["summary", "eta_guess", "status_color"]
+    required_keys = ["summary", "status_color"]
     result = query_gemma(prompt, required_keys=required_keys)
     
-    # Failure handling
+    # Fallback
     if "error" in result:
         return {
-            "summary": "We are currently observing anomalous system behavior. Detailed AI analysis is currently degraded, but automated containment protocols remain active. Our team is investigating potential cascading impacts.",
-            "eta_guess": "Unknown (Manual Verification Required)",
-            "status_color": "yellow"
+            "summary": "NetGuardian has detected and is mitigating a high-risk system event. Proactive containment protocols are active to protect critical infrastructure.",
+            "eta_guess": "Mitigation in progress.",
+            "status_color": "red"
         }
         
     return result
