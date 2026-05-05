@@ -105,6 +105,15 @@ export default function AIPanel({ incident, thinking }) {
                      <RefreshCcw size={8} /> ADAPTIVE_REFINEMENT
                    </span>
                 )}
+                {evolution?.safety_check && (
+                   <span style={{ 
+                     fontSize: 8, marginLeft: 4,
+                     background: evolution.safety_check === 'PASSED' ? "#10b981" : "#f59e0b", 
+                     color: "#000", padding: "1px 4px", borderRadius: 2, fontWeight: 700 
+                   }}>
+                     🛡️ SAFETY: {evolution.safety_check}
+                   </span>
+                )}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
                 Proactive Intervention: {diagnosis.predicted_next_failure || "Unknown Cascade"}

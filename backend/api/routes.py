@@ -10,12 +10,13 @@ from sse_starlette.sse import EventSourceResponse
 from backend.anomaly.preprocess import load_dataset
 from backend.anomaly.detector import AnomalyDetector
 from backend.events.trigger import trigger_agent_pipeline
+from backend.data_factory import industrialDataFactory
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # --- Shared state ---
-DATA_PATH = Path(__file__).parent.parent.parent / "data" / "sample_network.csv"
+DATA_PATH = Path(__file__).parent.parent.parent / "data" / "industrial_network_live.csv"
 _df = None
 _detector = AnomalyDetector()
 _stream_active = False
@@ -24,7 +25,16 @@ _stream_active = False
 def _ensure_trained():
     global _df, _detector
     if _df is None:
-        _df = load_dataset(str(DATA_PATH))
+        # WINNER MOVE: Generate high-fidelity industrial data on the fly for the demo
+        if not DATA_PATH.exists():
+            logger.info("🏭 Generating Industrial-Grade Telemetry for the demo...")
+            factory = industrialDataFactory(duration_hours=24)
+            _df = factory.generate(anomaly_rate=0.03) # Balanced for demo
+            DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _df.to_csv(str(DATA_PATH), index=False)
+        else:
+            _df = load_dataset(str(DATA_PATH))
+            
         _detector.fit(_df)
 
 
@@ -37,7 +47,8 @@ def health():
 def metrics_history():
     """Return the full dataset for initial chart rendering."""
     _ensure_trained()
-    records = _df.to_dict(orient="records")
+    # Take last 100 points for initial UI load
+    records = _df.tail(100).to_dict(orient="records")
     for r in records:
         r["timestamp"] = str(r["timestamp"])
     return {"data": records}
@@ -47,8 +58,6 @@ def metrics_history():
 async def stream_events(speed: float = 1.0):
     """
     Server-Sent Events stream — replays dataset rows in real-time.
-    Each row is processed through anomaly detection; anomalies trigger the AI pipeline.
-    Query param: speed (0.5 = fast demo, 1.0 = normal, 2.0 = slow)
     """
     _ensure_trained()
 
@@ -60,7 +69,7 @@ async def stream_events(speed: float = 1.0):
                 if not _stream_active:
                     break
 
-                # Run anomaly detection
+                # Run anomaly detection (predict_row includes feature engine)
                 event = _detector.predict_row(row)
 
                 # Trigger AI pipeline if anomaly detected
@@ -89,8 +98,7 @@ def stop_stream():
 @router.post("/api/inject-anomaly")
 def inject_anomaly():
     """
-    Demo endpoint — injects a scripted high-severity anomaly into the pipeline
-    and immediately returns the full AI incident response.
+    Demo endpoint — injects a scripted high-severity anomaly into the pipeline.
     """
     _ensure_trained()
     import pandas as pd
@@ -105,7 +113,7 @@ def inject_anomaly():
     })
 
     event = _detector.predict_row(scripted_row)
-    event["anomaly"] = True  # Force-flag for demo
+    event["anomaly"] = True  
     event["severity"] = "high"
     event["primary_metric"] = "latency_ms"
 

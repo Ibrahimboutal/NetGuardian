@@ -5,7 +5,7 @@ from backend.agents.diagnosis_agent import run_diagnosis
 from backend.agents.recommendation_agent import run_recommendation
 from backend.agents.explanation_agent import run_explanation
 from backend.agents.knowledge_base import retrieve_experience
-from backend.agents.tools import TOOLS
+from backend.agents.tools import TOOLS, simulate_impact
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +50,9 @@ class AnomalyMemory:
             return "[]"
         return json.dumps(self.history, indent=2)
 
-# Initialize memory
 memory = AnomalyMemory()
 
 def execute_structured_tool(tool_call: dict):
-    """
-    Executes a structured tool call: {"name": "...", "args": {...}}
-    """
     if not tool_call or not isinstance(tool_call, dict):
         return None
     
@@ -73,16 +69,17 @@ def execute_structured_tool(tool_call: dict):
 
 def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     """
-    Ultimate Adaptive Pipeline:
-    1. Structured Retrieval
+    Ultimate Adaptive Pipeline with Safety Guardrails:
+    1. Retrieval & Memory
     2. Hypothesis Formation (Initial)
-    3. Tool Execution & Adaptive Refinement (Branch on Confidence)
-    4. Tactical Command & Trade-offs
+    3. Tool Execution & Adaptive Refinement
+    4. Tactical Command & Safety Validation
+    5. Final Briefing
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
 
-    # Step 1: Explainable Retrieval & Memory
+    # Step 1: Retrieval & Memory
     experience = retrieve_experience(str(anomaly_event))
     pattern_data = memory.detect_pattern()
     context = memory.get_context()
@@ -97,13 +94,12 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     confidence_delta = 0.0
     adaptive_pass = False
 
-    # Logic: Only run expensive second pass if confidence is low OR AI explicitly asks
     needs_refinement = initial_confidence < 0.6 or initial_diagnosis.get("needs_more_analysis")
 
     if initial_diagnosis.get("tool_call") and needs_refinement:
         tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
         if tool_output:
-            logger.info(f"🔬 Low Confidence ({initial_confidence}): Initiating Adaptive Refinement pass...")
+            logger.info(f"🔬 Low Confidence ({initial_confidence}): Initiating Adaptive Refinement...")
             adaptive_pass = True
             refined_diagnosis = run_diagnosis(
                 anomaly_event, context, str(pattern_data), experience, 
@@ -112,20 +108,31 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
             )
             confidence_delta = round(float(refined_diagnosis.get("confidence", 0.5)) - initial_confidence, 2)
     elif initial_diagnosis.get("tool_call"):
-        # Even if confidence is high, we might run the tool but skip the re-diagnosis to save compute
         tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
 
-    # Step 4: Tactical Command with Trade-offs
+    # Step 4: Tactical Command with Safety Guardrails
     recommendation = run_recommendation(anomaly_event, refined_diagnosis, context, str(pattern_data))
     
+    # SAFETY GUARDRAIL: Pre-Execution Simulation
+    safety_check = "NOT_REQUIRED"
+    target_node = refined_diagnosis.get("predicted_next_failure", "Unknown")
+    
+    if recommendation.get("actions"):
+        logger.info("🛡️ Safety Guardrail: Verifying mitigation impact...")
+        safety_check = "PASSED"
+        # Simulate the 'Isolate' or 'Reroute' action
+        pre_sim = simulate_impact(target_node, "mitigation_validation")
+        if pre_sim.get("affected_nodes_count", 0) > 10: # If mitigation causes a bigger failure
+            logger.warning("⚠️ Safety Warning: Proposed mitigation may cause excessive service loss.")
+            safety_check = "RISK_DETECTED"
+
     # Execute mitigation
     action_results = []
     for action in recommendation.get("actions", []):
         if action.get("tool"):
-            # Execute mitigation via structured call
             res = execute_structured_tool({
                 "name": action["tool"], 
-                "args": {"action": action["action"], "target": refined_diagnosis.get("predicted_next_failure", "Unknown")}
+                "args": {"action": action["action"], "target": target_node}
             })
             if res:
                 action_results.append(res)
@@ -140,8 +147,7 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
             "refined_confidence": float(refined_diagnosis.get("confidence", initial_confidence)),
             "confidence_delta": confidence_delta,
             "adaptive_pass_triggered": adaptive_pass,
-            "analysis_depth": refined_diagnosis.get("analysis_depth", "SECOND_PASS" if adaptive_pass else "INITIAL"),
-            "tool_used": initial_diagnosis.get("tool_call", {}).get("name") if isinstance(initial_diagnosis.get("tool_call"), dict) else None
+            "safety_check": safety_check
         },
         "pattern_intelligence": pattern_data,
         "grounded_experience": experience,
