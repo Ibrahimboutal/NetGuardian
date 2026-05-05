@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Zap, Activity, Info, CheckCircle, TrendingUp, History, RefreshCcw, Layers } from "lucide-react";
+import { Brain, ShieldCheck, Zap, Activity, Info, CheckCircle, TrendingUp, History, RefreshCcw, Layers, Search } from "lucide-react";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },
@@ -33,6 +33,7 @@ export default function AIPanel({ incident, thinking }) {
   const simulation = incident?.simulation_results;
   const mitigations = incident?.mitigation_results || [];
   const evolution = incident?.belief_evolution;
+  const pattern = incident?.pattern_intelligence || {};
 
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
@@ -40,7 +41,7 @@ export default function AIPanel({ incident, thinking }) {
       <div className="panel-header">
         <div className="panel-title">
           <Activity size={14} className="panel-title-icon" color="#06b6d4" />
-          Predictive Resilience Engine v5
+          Predictive Resilience Engine v6
         </div>
         {thinking && (
           <div className="thinking-dots">
@@ -72,18 +73,18 @@ export default function AIPanel({ incident, thinking }) {
             <div className="ai-empty-icon">🛡️</div>
             <div className="ai-empty-text">
               <strong>Offline AI Sentinel</strong><br />
-              Probabilistic infrastructure reasoning.<br />
-              Adaptive multi-pass active.
+              Adaptive multi-pass reasoning.<br />
+              Structured tool-loop active.
             </div>
           </div>
         )}
 
         {thinking && !hasAgents && (
           <div>
-            <ThinkingIndicator label="🧠 Explainable RAG grounding in past cases…" />
-            <ThinkingIndicator label="🩺 Forming probabilistic hypotheses (T1)…" />
-            <ThinkingIndicator label="🔬 Evolving belief via tool simulation (T2)…" />
-            <ThinkingIndicator label="🔄 Initiating adaptive second reasoning pass…" />
+            <ThinkingIndicator label="🧠 Structured RAG grounding (Explainable Pass)…" />
+            <ThinkingIndicator label="🩺 INITIAL_HYPOTHESIS: Probabilistic Modeling…" />
+            <ThinkingIndicator label="🔬 Evolving belief via structured simulation…" />
+            <ThinkingIndicator label="🔄 SECOND_PASS_REFINEMENT: Deep trace analysis…" />
           </div>
         )}
 
@@ -101,20 +102,31 @@ export default function AIPanel({ incident, thinking }) {
                 </div>
                 {evolution?.adaptive_pass_triggered && (
                    <span style={{ fontSize: 8, background: "#06b6d4", color: "#000", padding: "1px 4px", borderRadius: 2, fontWeight: 700, display: "flex", alignItems: "center", gap: 2 }}>
-                     <RefreshCcw size={8} /> ADAPTIVE 2ND PASS
+                     <RefreshCcw size={8} /> SECOND_PASS_REFINEMENT
                    </span>
                 )}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
-                Proactive Intervention: {diagnosis.predicted_next_failure || "Unknown Cascade"}
+                Intervened: {diagnosis.predicted_next_failure || "Unknown Cascade"}
               </div>
             </div>
+
+            {/* Temporal Pattern Intelligence */}
+            {pattern.pattern && (
+               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(245,158,11,0.05)", borderRadius: 6, border: "1px solid rgba(245,158,11,0.2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>TEMPORAL INTELLIGENCE</div>
+                    <div style={{ fontSize: 9, color: "#f59e0b" }}>CONFIDENCE: {(pattern.confidence * 100).toFixed(0)}%</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{pattern.pattern}</div>
+               </div>
+            )}
 
             {/* Tactical Execution Moment */}
             {mitigations.length > 0 && (
                <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(16,185,129,0.05)", borderRadius: 6, borderLeft: "3px solid #10b981" }}>
                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4 }}>
-                  <CheckCircle size={10} /> AUTONOMOUS MITIGATION SUCCESSFUL
+                  <CheckCircle size={10} /> PROACTIVE MITIGATION EXECUTED
                </div>
                <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{mitigations[0].intervention}</div>
                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>Target: {mitigations[0].target}</div>
@@ -125,7 +137,8 @@ export default function AIPanel({ incident, thinking }) {
             {experience.id && (
               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, border: "1px solid rgba(6,182,212,0.2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4" }}>GROUNDED CASE: {experience.id} ({(experience.similarity * 100).toFixed(0)}% MATCH)</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4" }}>GROUNDED CASE: {experience.id}</div>
+                    <div style={{ fontSize: 8, color: "#06b6d4", background: "rgba(6,182,212,0.1)", padding: "1px 4px", borderRadius: 2 }}>{ (experience.similarity * 100).toFixed(0) }% Similarity</div>
                 </div>
                 <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{experience.name}</div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
@@ -147,7 +160,7 @@ export default function AIPanel({ incident, thinking }) {
             {diagnosis.hypotheses && (
                <div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Layers size={10} /> Probabilistic Hypotheses
+                    <Layers size={10} /> Probabilistic Modeling
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {diagnosis.hypotheses.map((h, i) => (
@@ -175,7 +188,7 @@ export default function AIPanel({ incident, thinking }) {
                 </div>
                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                    <div style={{ flex: 1, padding: 8, background: "#0f172a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
-                      <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>T1 HYPOTHESIS</div>
+                      <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>T1 INITIAL</div>
                       <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.initial_confidence}</div>
                    </div>
                    <div style={{ color: "#334155" }}>→</div>
@@ -191,8 +204,8 @@ export default function AIPanel({ incident, thinking }) {
             {simulation && (
                <div style={{ padding: "8px 10px", background: "rgba(245,158,11,0.05)", borderRadius: 6, border: "1px dashed rgba(245,158,11,0.3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>SIMULATION GROUNDING</div>
-                    <Zap size={10} color="#f59e0b" />
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>STRUCTURED SIMULATION DATA</div>
+                    <Search size={10} color="#f59e0b" />
                   </div>
                   <div style={{ fontSize: 11, color: "#f1f5f9" }}><strong>Outcome:</strong> {simulation.predicted_outcome}</div>
                   <div style={{ fontSize: 10, color: "#94a3b8" }}>Cascade Window: {simulation.time_to_critical_failure}</div>
@@ -200,7 +213,10 @@ export default function AIPanel({ incident, thinking }) {
             )}
 
             <div style={{ marginTop: 4 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" }}>Reasoning Trace</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Reasoning Trace</div>
+                <div style={{ fontSize: 8, color: "#06b6d4", fontWeight: 700 }}>MODE: {evolution?.analysis_depth || "INITIAL"}</div>
+              </div>
               <div style={{ 
                 padding: 10, background: "#0a0e1a", borderRadius: 6, border: "1px solid #1e2d4a",
                 fontSize: 11, color: "#cbd5e1", lineHeight: 1.5, fontStyle: "italic"
@@ -214,7 +230,7 @@ export default function AIPanel({ incident, thinking }) {
         {hasAgents && activeTab === "recommendation" && (
           <div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 9, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>TACTICAL DECISION</div>
+              <div style={{ fontSize: 9, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>COMMAND DECISION</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>{recommendation.decision}</div>
             </div>
 
