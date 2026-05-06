@@ -43,7 +43,7 @@ class Boardroom:
                 "critical_hits": result.get("critical_nodes_hit", [])
             })
 
-def trigger_agent_pipeline(anomaly_event: dict):
+def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
     """
     Elite Recursive Orchestration.
     Implements true reasoning refinement by re-injecting tool output into context.
@@ -60,7 +60,9 @@ def trigger_agent_pipeline(anomaly_event: dict):
     final_diagnosis = None
 
     for i in range(max_cycles):
-        logger.info(f"🧠 Boardroom Cycle {i+1}: Refining Hypothesis...")
+        msg = f"🧠 Boardroom Cycle {i+1}: Refining Hypothesis..."
+        logger.info(msg)
+        if progress_cb: progress_cb(msg)
         
         # 1. Simulate the current epicenter (Tool Use)
         sim_res = simulate_impact(node_id, magnitude=150)
@@ -68,6 +70,9 @@ def trigger_agent_pipeline(anomaly_event: dict):
         
         # 2. Re-inject results into context (The "Deep Reasoning" fix)
         context_stream += f"\nCycle {i+1} Simulation: Impact Score {sim_res['impact_score']}, Critical Nodes Hit: {sim_res['critical_nodes_hit']}"
+        
+        msg2 = f"📊 Cycle {i+1} Simulation: Impact Score {sim_res['impact_score']}, Critical Nodes Hit: {sim_res['critical_nodes_hit']}"
+        if progress_cb: progress_cb(msg2)
         
         # 3. Formulate tactical decision based on evolved context
         if sim_res["impact_score"] < 50:

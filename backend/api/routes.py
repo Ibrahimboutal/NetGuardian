@@ -15,16 +15,25 @@ from backend.data_factory import industrialDataFactory
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+import threading
+
 # --- Shared state ---
-DATA_PATH = Path(__file__).parent.parent.parent / "data" / "industrial_network_live.csv"
+DATA_PATH = Path(__file__).parent.parent.parent / "data" / "ML-MATT-CompetitionQT2021_train.csv"
 _df = None
 _detector = AnomalyDetector()
 _stream_active = False
+_train_lock = threading.Lock()
 
 
 def _ensure_trained():
     global _df, _detector
-    if _df is None:
+    if _df is not None:
+        return
+        
+    with _train_lock:
+        if _df is not None:
+            return
+            
         # WINNER MOVE: Generate high-fidelity industrial data on the fly for the demo
         if not DATA_PATH.exists():
             logger.info("🏭 Generating Industrial-Grade Telemetry for the demo...")

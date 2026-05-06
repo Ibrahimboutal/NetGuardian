@@ -4,8 +4,29 @@ from collections import deque
 
 def load_dataset(path: str) -> pd.DataFrame:
     """Utility to load the simulation dataset."""
-    df = pd.read_csv(path)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    with open(path, 'r') as f:
+        first_line = f.readline()
+    
+    if ';' in first_line:
+        df = pd.read_csv(path, sep=';')
+    else:
+        df = pd.read_csv(path)
+        
+    if 'Time' in df.columns and 'CellName' in df.columns:
+        df = df.rename(columns={
+            'Time': 'timestamp',
+            'CellName': 'node_id',
+            'meanThr_DL': 'latency_ms',
+            'PRBUsageDL': 'throughput_mbps',
+            'PRBUsageUL': 'packet_loss_pct',
+            'maxThr_DL': 'jitter_ms',
+            'meanUE_DL': 'connections'
+        })
+        today = pd.Timestamp.now().strftime('%Y-%m-%d ')
+        df['timestamp'] = pd.to_datetime(today + df['timestamp'].astype(str))
+    else:
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
     return df
 
 class FeatureEngine:

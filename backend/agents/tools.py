@@ -63,6 +63,9 @@ class NetworkSimulator:
         return None
 
     def simulate_failure(self, epicenter, magnitude=100):
+        if epicenter not in self.node_states:
+            epicenter = "Router-14"
+            
         affected = {epicenter}
         queue = [(epicenter, magnitude)]
         total_impact = 0
