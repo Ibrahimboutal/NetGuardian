@@ -2,7 +2,7 @@
 
 > **"Resilience at the edge, even when the cloud is dark."**
 >
-> **Disaster-Grade Resilience** — A 100% offline, agentic defense system engineered specifically for **remote telecom networks, utility grids, and disaster-recovery zones.** Powered by local multi-agent AI (Gemma 4).
+> **Global Resilience & Infrastructure Safety** — A 100% offline, agentic defense system engineered specifically for **remote telecom networks, utility grids, and disaster-recovery zones.** Powered by **Gemma 4 Native Intelligence.**
 
 ---
 
@@ -14,18 +14,18 @@ graph TD
     B --> C{Anomaly?}
     C -- Yes --> D[Event Buffer]
     
-    subgraph "Predictive Intelligence Layer"
+    subgraph "Gemma 4 Intelligence Layer"
         D --> D1[Temporal Memory]
         D1 --> E[Gemma 4 Multi-Agent Pipeline]
         
-        subgraph "Reasoning & Planning"
+        subgraph "Native Reasoning & Tool Use"
             E1[🩺 Reasoning Agent] -- Reasoning Trace --> E2[🔧 Command Agent]
-            E2 -- Tool Use --> T[Tooling Layer]
-            T -- Simulation --> E1
+            E2 -- Native Tool Call --> T[Tooling Layer]
+            T -- Simulation/Telemetry --> E1
         end
         
-        subgraph "Grounding (RAG)"
-            K[Experience Base] -- Retrieve --> E1
+        subgraph "Agentic Grounding (RAG)"
+            K[Experience Base] -- Cosine Similarity --> E1
         end
     end
     
@@ -42,57 +42,42 @@ graph TD
 
 ---
 
-## 🚀 Key Innovations
+## 🚀 Key Innovations for Gemma 4
 
-### 1. Predictive Temporal Reasoning
-Unlike reactive systems, NetGuardian analyzes **event sequences** over time. It identifies the "signature" of a cascading failure (e.g., Latency Spike → Buffer Pressure → Node Drop) and predicts the next failure point **before it happens**.
+### 1. Global Resilience: Disaster-Grade Edge Intelligence
+NetGuardian addresses the most critical gap in modern AI: **Cloud Dependency**. In disaster scenarios where backhaul connectivity is severed, NetGuardian provides frontier-grade intelligence locally. It turns a standard industrial gateway into an autonomous incident responder.
 
-### 2. Experience-Grounded RAG (Offline)
-The system uses a local **Experience Base** to ground the AI's reasoning. By retrieving similar past incident patterns, the agent avoids "hallucinations" and provides remediation plans backed by historical data—all without an internet connection.
+### 2. Safety & Trust: The Explainable Reasoning Trace
+We leverage Gemma 4's superior reasoning to generate a **structured Reasoning Trace**. Instead of "black box" decisions, NetGuardian explains its logic:
+*   *Step 1: Evidence gathering via `get_node_status`.*
+*   *Step 2: Probabilistic modeling of cascade paths.*
+*   *Step 3: Verification via `simulate_impact`.*
+This transparency is critical for building trust with human operators in high-stakes infrastructure environments.
 
-### 3. Tool-Augmented Agents (Function Calling)
-NetGuardian agents don't just "talk"; they **act**. The pipeline is equipped with a Tooling Layer that allows agents to:
-- `get_node_status()`: Query live telemetry.
-- `simulate_impact()`: Run graph-based failure simulations.
-- `execute_mitigation()`: Apply tactical isolation or reroute traffic.
-
----
-
-## 🏆 The Winning Pitch: "The Resilience Edge"
-
-**The Problem**: Critical infrastructure (power grids, defense, disaster recovery) cannot rely on cloud-based AI. If the network is failing, the cloud is unreachable.
-
-**The Solution**: **NetGuardian**. An offline, predictive sentinel that lives on the edge. It doesn't just tell you what's broken; it tells you what's **going to break** and intervenes to save the system.
-
-### The Demo Flow:
-1. **The Watchman**: Normal operation in a disaster recovery zone.
-2. **The First Strike**: A minor egress spike detected.
-3. **The Grounding**: RAG Layer retrieves a "Database Exfiltration" pattern.
-4. **The Prediction**: Reasoning Agent predicts a 78% probability of a cascading firewall failure within 120s.
-5. **The Intervention**: Command Agent calls `execute_mitigation` to isolate the node, successfully preventing the cascade.
+### 3. Technical Depth: Native Function Calling via Ollama
+Unlike basic prompt-based JSON extraction, NetGuardian utilizes **Gemma 4's Native Function Calling** capabilities. By interfacing with the **Ollama Chat API**, our agents dynamically call tools like `simulate_impact()` as formal function objects. This ensures deterministic grounding and architectural robustness.
 
 ---
 
-## 🧠 Multi-Agent Logic
+## 🧠 Multi-Agent Logic Engine
 
-| Agent | Role | Output |
-|-------|------|--------|
-| 🩺 **Reasoning** | Predictive Forensic | Reasoning Trace, Cascade Probability, Next Failure Point |
-| 🔧 **Command** | Tactical Commander | Tool Execution Plan, Mitigation Steps |
-| 📢 **Communicator** | Crisis Briefing | Executive Summary, Containment Status |
-
----
-
-## 🛡️ Why This Wins
-- **Indispensable AI**: The system uses Gemma's reasoning to make decisions under uncertainty, not just as a chatbot.
-- **Native Tool Use**: Real-time integration between LLM reasoning and system commands.
-- **Zero Cloud Trace**: Full privacy and resilience for high-security environments.
+| Agent | Role | Gemma 4 Specialization |
+|-------|------|-------------------------|
+| 🩺 **Reasoning** | Predictive Forensic | Probabilistic hypothesis generation & cascade prediction. |
+| 🔧 **Command** | Tactical Commander | Native tool invocation & trade-off analysis. |
+| 📢 **Communicator** | Crisis Briefing | Multi-modal ready briefing generation (Safety & Trust). |
 
 ---
 
-## ⚙️ Hardware & Edge Efficiency
-NetGuardian is architected for **resource-constrained edge environments**. 
+## 🛠️ Technology Stack (Special Technology Track)
+- **Model**: Gemma 4 (9B/27B) — Utilized for its native tool-calling and improved reasoning density.
+- **Provider**: **Ollama** — 100% local inference via `/api/chat` for maximum privacy and resilience.
+- **Framework**: FastAPI (Backend) + React/Vite (Premium Dashboard).
+- **Inference Strategy**: Quantized 4-bit/8-bit execution for sub-3s reasoning loops on edge hardware.
 
-- **Model Selection**: We intentionally utilize **Gemma 2B** as the primary reasoning engine to ensure low-latency inference on field hardware (industrial gateways/IoT nodes).
-- **Forward Compatibility**: The agentic pipeline is **fully compatible with Gemma 4** (7B/27B) variants for deployment in regional command centers with high-spec local compute.
-- **Efficiency**: Achieves sub-3s reasoning loops on CPU-only edge hardware, critical for real-time disaster response.
+---
+
+## 🏆 Why NetGuardian Wins
+1. **Impact**: Solves the "Offline AI" problem for critical infrastructure (Global Resilience Track).
+2. **Technical Mastery**: Implements Native Function Calling and Agentic Retrieval (Technical Depth Track).
+3. **Storytelling**: A "WOW" factor UI that visualizes AI thought processes in real-time.

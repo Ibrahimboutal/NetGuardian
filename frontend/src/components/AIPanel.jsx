@@ -38,18 +38,30 @@ export default function AIPanel({ incident, thinking }) {
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
       {/* Header */}
-      <div className="panel-header">
-        <div className="panel-title">
-          <Activity size={14} className="panel-title-icon" color="#06b6d4" />
-          Predictive Resilience Engine v7
-        </div>
-        {thinking && (
-          <div className="thinking-dots">
-            <div className="thinking-dot" />
-            <div className="thinking-dot" />
-            <div className="thinking-dot" />
+      <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", background: "rgba(15,22,41,0.5)" }}>
+        <div className="panel-title" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Brain size={14} color="#3b82f6" />
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.5px" }}>GEMMA 4 EDGE INTELLIGENCE</span>
           </div>
-        )}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.8 }}>
+            <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 500 }}>POWERED BY</span>
+            <span style={{ fontSize: 9, color: "#06b6d4", fontWeight: 700, letterSpacing: "1px" }}>OLLAMA LOCAL</span>
+            <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 4px #10b981" }}></div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {thinking && (
+            <div className="thinking-dots">
+                <div className="thinking-dot" />
+                <div className="thinking-dot" />
+                <div className="thinking-dot" />
+            </div>
+            )}
+            <div style={{ fontSize: 8, padding: "2px 6px", background: "rgba(59,130,246,0.1)", color: "#3b82f6", borderRadius: 4, border: "1px solid rgba(59,130,246,0.2)", fontWeight: 700 }}>
+                NATIVE_TOOLS_v4
+            </div>
+        </div>
       </div>
 
       {/* Tabs */}
