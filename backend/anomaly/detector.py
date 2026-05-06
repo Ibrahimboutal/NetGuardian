@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import logging
+import threading
 from .preprocess import engine
 from sklearn.ensemble import IsolationForest
 
@@ -12,6 +13,8 @@ class AnomalyDetector:
         self.model = IsolationForest(n_estimators=100, contamination=0.1)
         self.training_data = []
         self.is_trained = False
+        self.lock = threading.Lock()
+        self.steps_since_train = 0
         self.feature_names = [
             "latency_ms", "throughput_mbps", "packet_loss_pct", "jitter_ms", "connections",
             "latency_avg", "throughput_avg", "packet_loss_avg", "jitter_avg", "connections_avg",
@@ -39,19 +42,27 @@ class AnomalyDetector:
 
         X = np.array(features_list, dtype=float)
 
-        self.model.fit(X)
-        self.is_trained = True
-        self.training_data = features_list[-500:]
+        with self.lock:
+            self.model.fit(X)
+            self.is_trained = True
+            self.training_data = features_list[-500:]
 
         self.save_model()
 
     def train_step(self, features):
-        self.training_data.append(features)
+        with self.lock:
+            self.training_data.append(features)
+            
+            if len(self.training_data) > 500:
+                self.training_data = self.training_data[-500:]
 
-        if len(self.training_data) >= 20:
-            X = np.array(self.training_data)
-            self.model.fit(X)
-            self.is_trained = True
+            if len(self.training_data) >= 20 and self.steps_since_train >= 50:
+                X = np.array(self.training_data)
+                self.model.fit(X)
+                self.is_trained = True
+                self.steps_since_train = 0
+            else:
+                self.steps_since_train += 1
 
     def save_model(self):
         # Placeholder for model persistence
@@ -66,8 +77,9 @@ class AnomalyDetector:
 
         X = features.reshape(1, -1)
 
-        score = float(self.model.score_samples(X)[0])
-        is_anomaly = bool(self.model.predict(X)[0] == -1)
+        with self.lock:
+            score = float(self.model.score_samples(X)[0])
+            is_anomaly = bool(self.model.predict(X)[0] == -1)
 
         # --- Feedback loop (mitigation awareness) ---
         node_state = sim.node_states.get(node_id, {})
