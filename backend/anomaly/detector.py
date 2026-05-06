@@ -137,7 +137,8 @@ class AnomalyDetector:
 
     def predict_row(self, row: pd.Series) -> dict:
         features = engine.process(row)
-        is_anomaly, score, severity, attribution = self.predict(features)
+        node_id = row.get("node_id", "Unknown")
+        is_anomaly, score, severity, attribution = self.predict(features, node_id=node_id)
         
         res = row.to_dict()
         if 'timestamp' in res:
@@ -154,8 +155,8 @@ class AnomalyDetector:
 
 detector = AnomalyDetector()
 
-def check_anomaly(features: np.ndarray) -> dict:
-    is_anomaly, score, severity, attribution = detector.predict(features)
+def check_anomaly(features: np.ndarray, node_id: str = "Unknown") -> dict:
+    is_anomaly, score, severity, attribution = detector.predict(features, node_id=node_id)
     return {
         "anomaly": is_anomaly,
         "anomaly_score": round(score, 4),

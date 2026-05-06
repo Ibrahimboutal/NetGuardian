@@ -25,6 +25,16 @@ NETWORK_TOPOLOGY = {
     "Backup-Vault-01": ["Core-DC-01"]
 }
 
+# Infrastructure Criticality (The "Importance" Factor)
+NODE_CRITICALITY = {
+    "Core-DC-01": 10,
+    "Backup-Vault-01": 9,
+    "Regional-Hub-North": 7,
+    "Regional-Hub-South": 7,
+    "Router-01": 5, "Router-02": 5, "Router-14": 8,
+    "Node-A": 2, "Node-B": 2, "Substation-Alpha": 4, "Substation-Beta": 4
+}
+
 # Robust Ontology Mapping (Aliases)
 TOOL_REGISTRY = {
     "isolate": "execute_mitigation",
@@ -41,49 +51,48 @@ TOOL_REGISTRY = {
 }
 
 class NetworkSimulator:
-    """
-    Simulates Failure Propagation across a network graph using Distance-Based Decay.
-    """
     def __init__(self, topology):
         self.topology = topology
         self.node_states = {node: {"latency": 20, "load": 10, "status": "Healthy"} for node in topology}
 
-    def simulate_failure(self, start_node, failure_type):
+    def simulate_failure(self, start_node, failure_type="cascade"):
         """
-        Propagates a failure using an Inverse Distance Weighting (IDW) model.
-        The impact decays as a function of 'hops' from the epicenter.
+        Advanced Stateful Propagation: Respects active mitigations and criticality.
+        If a node is Isolated, spread stops. If Throttled, spread is slowed.
         """
-        affected = {}
-        # Queue stores: (node, current_distance/hops)
-        queue = [(start_node, 0)] 
-        visited = {start_node: 0}
+        affected = {start_node}
+        queue = [(start_node, 1.0)] # node, probability of spread
+        total_impact_score = 0
         
         while queue:
-            node, hops = queue.pop(0)
+            current, prob = queue.pop(0)
+            state = self.node_states.get(current, {})
+            status = state.get("status", "Healthy")
             
-            # Impact factor decays using inverse distance: 1 / (hops + 1)
-            # This makes the propagation modeling feel much more algorithmic.
-            factor = 1.0 / (hops + 1.0)
+            # --- MITIGATION FEEDBACK LOOP ---
+            if status == "Isolated": 
+                continue # The wall: Spread stops at isolated nodes
             
-            if factor < 0.2: # Prune very distant nodes
-                continue
-                
-            # Apply impact with logarithmic scaling for load
-            impact = {
-                "hops_from_source": hops,
-                "latency_increase": int(250 * factor),
-                "load_increase": int(100 * math.log(hops + 2, 2) * factor), # Logarithmic pressure
-                "status": "Critical" if factor > 0.7 else ("Degraded" if factor > 0.4 else "At Risk")
-            }
-            affected[node] = impact
+            effective_prob = prob
+            if status == "Throttled":
+                effective_prob *= 0.2 # 80% reduction in propagation risk
             
-            # Propagate to neighbors
-            for neighbor in self.topology.get(node, []):
-                if neighbor not in visited or visited[neighbor] > hops + 1:
-                    visited[neighbor] = hops + 1
-                    queue.append((neighbor, hops + 1))
+            # Weighted impact calculation
+            total_impact_score += NODE_CRITICALITY.get(current, 1) * effective_prob
+            
+            if effective_prob < 0.2: continue # Failure fizzled out
+            
+            for neighbor in self.topology.get(current, []):
+                if neighbor not in affected:
+                    affected.add(neighbor)
+                    queue.append((neighbor, effective_prob * 0.7)) # Spatial decay
         
-        return affected
+        return {
+            "affected_nodes_count": len(affected),
+            "impact_score": round(total_impact_score, 2),
+            "critical_nodes_hit": [n for n in affected if NODE_CRITICALITY.get(n, 0) >= 8],
+            "containment_status": "Successful" if len(affected) < 3 else "Partial"
+        }
 
     def apply_mitigation(self, node_id, action, params=None):
         """State Evolution: Actually changes the world state."""
@@ -121,11 +130,7 @@ def simulate_impact(node_id: str, failure_type: str = "buffer_exhaustion"):
     """Tool: Runs a graph-based simulation to predict impact."""
     logger.info(f"🛠️ Tool Calling: simulate_impact({node_id}, {failure_type})")
     propagation = sim.simulate_failure(node_id, failure_type)
-    return {
-        "start_node": node_id,
-        "affected_nodes": len(propagation),
-        "risk": "CRITICAL" if len(propagation) > 4 else "LOW"
-    }
+    return propagation
 
 def execute_mitigation(action: str, target: str):
     """Tool: Executes a defensive action and updates the world state."""
@@ -145,15 +150,16 @@ def analyze_topology(node_id: str):
     return {
         "node": node_id,
         "neighbors": neighbors,
-        "critical_paths": [n for n in neighbors if "Core" in n],
+        "critical_paths": [n for n in neighbors if NODE_CRITICALITY.get(n, 0) >= 8],
         "redundancy_level": "High" if len(neighbors) > 2 else "Low"
     }
 
 def throttle_traffic(node_id: str, throttle_pct: int):
     """Tool: Limits ingress traffic to prevent buffer overflow or DDoS saturation."""
     logger.info(f"🛠️ Tool Calling: throttle_traffic({node_id}, {throttle_pct}%)")
+    success = sim.apply_mitigation(node_id, "throttle", {"pct": throttle_pct})
     return {
-        "status": "Applied",
+        "status": "Applied" if success else "Failed",
         "node": node_id,
         "throttle_rate": f"{throttle_pct}%",
         "risk_mitigation": "DDoS/Buffer Satiation"
@@ -162,12 +168,13 @@ def throttle_traffic(node_id: str, throttle_pct: int):
 def reroute_path(source_node: str, blocked_path: str):
     """Tool: Forcefully reroutes traffic from a degraded path to a redundant neighbor."""
     logger.info(f"🛠️ Tool Calling: reroute_path({source_node}, {blocked_path})")
+    success = sim.apply_mitigation(source_node, "reroute")
     neighbors = NETWORK_TOPOLOGY.get(source_node, [])
     alternative = [n for n in neighbors if n != blocked_path]
     return {
         "source": source_node,
         "rerouted_via": alternative[0] if alternative else "None",
-        "path_latency_delta": "+5ms" if alternative else "N/A"
+        "status": "Success" if success else "Failed"
     }
 
 TOOLS = {
