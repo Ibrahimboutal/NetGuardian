@@ -29,11 +29,11 @@ export default function AIPanel({ incident, thinking }) {
   const diagnosis = hasAgents?.diagnosis || {};
   const recommendation = hasAgents?.recommendation || {};
   const explanation = hasAgents?.explanation || {};
-  const experience = incident?.grounded_experience || {};
-  const simulation = incident?.simulation_results;
-  const mitigations = incident?.mitigation_results || [];
-  const evolution = incident?.belief_evolution;
-  const pattern = incident?.pattern_intelligence || {};
+  const simulation = incident?.simulation || {};
+  const blackboard = incident?.blackboard || {};
+  const causalChain = blackboard.causal_chain || [];
+  const cycles = incident?.cycles_run || 0;
+  const safety = blackboard.safety_status || "PASSED";
 
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
@@ -104,31 +104,22 @@ export default function AIPanel({ incident, thinking }) {
           <div>
             {/* System Alert Banner */}
             <div style={{
-              background: `rgba(${explanation.status_color === 'red' ? '239,68,68' : '234,179,8'}, 0.08)`, 
-              border: `1px solid rgba(${explanation.status_color === 'red' ? '239,68,68' : '234,179,8'}, 0.2)`,
+              background: `rgba(${safety === 'CRITICAL_WARNING' ? '239,68,68' : '234,179,8'}, 0.08)`, 
+              border: `1px solid rgba(${safety === 'CRITICAL_WARNING' ? '239,68,68' : '234,179,8'}, 0.2)`,
               borderRadius: 8, padding: "10px 12px", marginBottom: 14
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <div style={{ fontSize: 10, color: explanation.status_color === 'red' ? '#ef4444' : '#eab308', fontWeight: 700, textTransform: "uppercase" }}>
-                    Status: {diagnosis.risk_level || "Investigating"}
+                <div style={{ fontSize: 10, color: safety === 'CRITICAL_WARNING' ? '#ef4444' : '#eab308', fontWeight: 700, textTransform: "uppercase" }}>
+                    SAFETY: {safety}
                 </div>
-                {evolution?.adaptive_pass_triggered && (
-                   <span style={{ fontSize: 8, background: "#06b6d4", color: "#000", padding: "1px 4px", borderRadius: 2, fontWeight: 700, display: "flex", alignItems: "center", gap: 2 }}>
-                     <RefreshCcw size={8} /> ADAPTIVE_REFINEMENT
-                   </span>
-                )}
-                {evolution?.safety_check && (
-                   <span style={{ 
-                     fontSize: 8, marginLeft: 4,
-                     background: evolution.safety_check === 'PASSED' ? "#10b981" : "#f59e0b", 
-                     color: "#000", padding: "1px 4px", borderRadius: 2, fontWeight: 700 
-                   }}>
-                     🛡️ SAFETY: {evolution.safety_check}
+                {cycles > 0 && (
+                   <span className="cycle-badge">
+                     <RefreshCcw size={8} /> {cycles} REASONING CYCLES
                    </span>
                 )}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
-                Proactive Intervention: {diagnosis.predicted_next_failure || "Unknown Cascade"}
+                Tactical Priority: {diagnosis || "Stabilizing Infrastructure"}
               </div>
             </div>
 
@@ -198,27 +189,38 @@ export default function AIPanel({ incident, thinking }) {
                </div>
             )}
 
-            {/* Belief Evolution & Confidence Delta */}
-            {evolution && (
-              <div style={{ marginTop: 4 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}><TrendingUp size={10} /> Belief Evolution</div>
-                  <div style={{ color: evolution.confidence_delta >= 0 ? "#10b981" : "#ef4444" }}>
-                    {evolution.confidence_delta >= 0 ? "+" : ""}{evolution.confidence_delta} CONFIDENCE DELTA
+            {/* Causal Chain Visualization */}
+            {causalChain.length > 0 && (
+               <div style={{ marginTop: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 4 }}>
+                    <TrendingUp size={10} /> Causal Chain Discovery
                   </div>
-                </div>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                   <div style={{ flex: 1, padding: 8, background: "#0f172a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
-                      <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>T1 HYPOTHESIS</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.initial_confidence}</div>
-                   </div>
-                   <div style={{ color: "#334155" }}>→</div>
-                   <div style={{ flex: 1, padding: 8, background: "rgba(6,182,212,0.05)", borderRadius: 4, border: "1px solid #06b6d4" }}>
-                      <div style={{ fontSize: 8, color: "#06b6d4", marginBottom: 2 }}>T2 REFINED</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: "#f1f5f9" }}>{evolution.refined_confidence}</div>
-                   </div>
-                </div>
-              </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {causalChain.map((link, i) => (
+                       <div key={i} style={{ 
+                         padding: "8px", background: "#0f172a", borderRadius: 6, border: "1px solid #1e2d4a",
+                         position: "relative"
+                       }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#f1f5f9" }}>Epicenter: {link.epicenter}</div>
+                            <div className="causal-badge">IMPACT: {link.impact}</div>
+                          </div>
+                          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
+                             Cascade detected across {link.nodes_lost} nodes.
+                          </div>
+                          {link.critical_hits?.length > 0 && (
+                             <div style={{ marginTop: 6, display: "flex", gap: 4 }}>
+                                {link.critical_hits.map((n, j) => (
+                                   <span key={j} style={{ fontSize: 8, background: "rgba(239,68,68,0.1)", color: "#ef4444", padding: "1px 4px", borderRadius: 2 }}>
+                                     {n} (CORE)
+                                   </span>
+                                ))}
+                             </div>
+                          )}
+                       </div>
+                    ))}
+                  </div>
+               </div>
             )}
 
             {/* Simulation Block (Graph Propagation) */}
