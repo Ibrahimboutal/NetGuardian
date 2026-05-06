@@ -98,9 +98,13 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
 
     # Step 4: Command & Safety (Boardroom Review)
     log_progress("Command Agent: Evaluating tactical interventions...")
-    recommendation = run_recommendation(anomaly_event, diagnosis, board.history)
-    
-    # Safety Check: Pre-execution simulation of the recommendation
+    recommendation = run_recommendation(anomaly_event, diagnosis, board.get_context())
+    board.blackboard["decisions"].append({
+        "strategy": recommendation.get("decision"),
+        "justification": recommendation.get("strategic_justification")
+    })
+    log_progress(f"Strategic Decision: {recommendation.get('decision')}")
+    log_progress(f"Justification: {recommendation.get('strategic_justification')}")
     safety_status = "PASSED"
     if recommendation.get("actions"):
         log_progress("Safety Board: Verifying mitigation impact...")

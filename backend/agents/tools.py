@@ -99,8 +99,43 @@ def execute_mitigation(action: str, target: str):
         "impact_recovery_est": "15 minutes"
     }
 
+def analyze_topology(node_id: str):
+    """Tool: Returns the immediate topology and connectivity graph for a node."""
+    logger.info(f"🛠️ Tool Calling: analyze_topology({node_id})")
+    neighbors = NETWORK_TOPOLOGY.get(node_id, [])
+    return {
+        "node": node_id,
+        "neighbors": neighbors,
+        "critical_paths": [n for n in neighbors if "Core" in n],
+        "redundancy_level": "High" if len(neighbors) > 2 else "Low"
+    }
+
+def throttle_traffic(node_id: str, throttle_pct: int):
+    """Tool: Limits ingress traffic to prevent buffer overflow or DDoS saturation."""
+    logger.info(f"🛠️ Tool Calling: throttle_traffic({node_id}, {throttle_pct}%)")
+    return {
+        "status": "Applied",
+        "node": node_id,
+        "throttle_rate": f"{throttle_pct}%",
+        "risk_mitigation": "DDoS/Buffer Satiation"
+    }
+
+def reroute_path(source_node: str, blocked_path: str):
+    """Tool: Forcefully reroutes traffic from a degraded path to a redundant neighbor."""
+    logger.info(f"🛠️ Tool Calling: reroute_path({source_node}, {blocked_path})")
+    neighbors = NETWORK_TOPOLOGY.get(source_node, [])
+    alternative = [n for n in neighbors if n != blocked_path]
+    return {
+        "source": source_node,
+        "rerouted_via": alternative[0] if alternative else "None",
+        "path_latency_delta": "+5ms" if alternative else "N/A"
+    }
+
 TOOLS = {
     "get_node_status": get_node_status,
     "simulate_impact": simulate_impact,
-    "execute_mitigation": execute_mitigation
+    "execute_mitigation": execute_mitigation,
+    "analyze_topology": analyze_topology,
+    "throttle_traffic": throttle_traffic,
+    "reroute_path": reroute_path
 }

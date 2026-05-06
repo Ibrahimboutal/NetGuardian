@@ -1,51 +1,48 @@
 from .gemma_client import query_gemma
 
 
-def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "", pattern: str = "") -> dict:
+def run_recommendation(anomaly_event: dict, diagnosis: dict, context: str = "") -> dict:
     """
-    Command Agent — Plans tactical interventions with trade-off analysis.
+    Command Agent — Tactical Decision Making.
+    Selects from a sophisticated mitigation toolset based on trade-off analysis.
     """
-    prompt = f"""SYSTEM: You are the Incident Commander for Infrastructure Defense.
-Your role is to plan tactical interventions, balancing risk mitigation against service availability.
-Output strictly valid JSON. No conversational text.
+    prompt = f"""SYSTEM: You are the Tactical Incident Commander for Network Defense.
+Your goal is to neutralize the threat while maintaining maximum uptime.
 
-PREDICTIVE DIAGNOSIS:
+DIAGNOSIS EVIDENCE:
 {diagnosis}
 
-TELEMETRY:
-{anomaly_event}
+INCIDENT CONTEXT:
+{context}
 
-TEMPORAL PATTERN:
-{pattern}
+AVAILABLE TACTICAL TOOLS:
+1. `throttle_traffic(node_id, pct)`: Best for DDoS or buffer exhaustion. Minimal service impact.
+2. `reroute_path(source, blocked)`: Best for link degradation or local outages. Zero traffic loss if redundant paths exist.
+3. `execute_mitigation(action, target)`: Use for 'Isolate' (Extreme safety) or 'Failover' (High availability).
+
+STRICT OUTPUT CONSTRAINTS:
+1. You MUST choose the tool that minimizes service loss while guaranteeing containment.
+2. Provide a 'Strategic Justification' explaining why you chose one tool over another.
+3. Output strictly valid JSON.
 
 JSON SCHEMA:
 {{
-  "decision": "Short title of the tactical decision",
+  "decision": "Intervention Strategy",
   "actions": [
-    {{ 
-      "action": "Description", 
-      "priority": "CRITICAL/HIGH/MEDIUM", 
-      "tool": "Optional tool name to execute" 
-    }}
+    {{ "action": "Step description", "tool": "tool_name", "priority": "HIGH" }}
   ],
-  "trade_off_analysis": "Explicitly weigh the pros and cons of this decision (e.g. Isolation saves network but cuts regional service).",
-  "estimated_recovery_impact": "How this prevents the cascade"
-}}
+  "strategic_justification": "Why this specific tool? (e.g., Throttling preferred over isolation to keep 80% traffic alive)",
+  "trade_off": "Availability cost of this decision"
+}}"""
 
-STRICT CONSTRAINT: You must explicitly address the TRADE-OFFS of your chosen actions."""
-
-    required_keys = ["decision", "actions", "trade_off_analysis"]
-    result = query_gemma(prompt, required_keys=required_keys)
+    result = query_gemma(prompt)
     
-    # Fallback
     if "error" in result:
         return {
-            "decision": "Manual Emergency Override",
-            "actions": [
-                { "action": "Initiate manual node isolation", "priority": "CRITICAL", "tool": "execute_mitigation" }
-            ],
-            "trade_off_analysis": "Isolation prevents total network collapse at the cost of immediate localized service blackout.",
-            "estimated_recovery_impact": "Prevents immediate cascade propagation via manual isolation."
+            "decision": "Emergency Isolation",
+            "actions": [{"action": "Isolate Node", "tool": "execute_mitigation", "priority": "CRITICAL"}],
+            "strategic_justification": "Immediate isolation required to stop cascade propagation.",
+            "trade_off": "100% loss for the target node."
         }
         
     return result

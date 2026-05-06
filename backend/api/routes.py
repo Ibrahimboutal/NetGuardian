@@ -74,16 +74,18 @@ async def stream_events(speed: float = 1.0):
 
                 # Trigger AI pipeline if anomaly detected
                 if event["anomaly"]:
-                    # WINNER MOVE: Stream the reasoning progress in real-time
+                    # WINNER MOVE: Capture and stream agentic progress
+                    progress_messages = []
                     def progress_cb(msg):
-                        # This runs inside the executor, but we can't easily yield from here.
-                        # So we log it and send a separate event if we had a queue.
-                        # For now, we'll just include it in the final event or use a simple hack.
-                        pass
+                        progress_messages.append(msg)
 
                     event = await asyncio.get_event_loop().run_in_executor(
-                        None, trigger_agent_pipeline, event, None
+                        None, trigger_agent_pipeline, event, progress_cb
                     )
+                    
+                    # Yield progress messages before the final event
+                    for msg in progress_messages:
+                        yield {"event": "agent_status", "data": json.dumps({"message": msg})}
 
                 payload = json.dumps(event)
                 yield {"event": "metric", "data": payload}

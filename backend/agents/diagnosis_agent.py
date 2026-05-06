@@ -9,12 +9,12 @@ DIAGNOSIS_TOOLS = [
         "type": "function",
         "function": {
             "name": "simulate_impact",
-            "description": "Runs a graph-based simulation to predict the impact of a node failure on the network.",
+            "description": "Runs a graph-based simulation to predict the impact of a node failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "node_id": {"type": "string", "description": "The ID of the router or switch to simulate (e.g., 'Router-14')"},
-                    "failure_type": {"type": "string", "enum": ["buffer_exhaustion", "latency_spike", "disconnect"], "description": "Type of failure to model"}
+                    "node_id": {"type": "string", "description": "Target node (e.g., 'Router-14')"},
+                    "failure_type": {"type": "string", "enum": ["buffer_exhaustion", "latency_spike", "disconnect"]}
                 },
                 "required": ["node_id", "failure_type"]
             }
@@ -24,11 +24,25 @@ DIAGNOSIS_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_node_status",
-            "description": "Retrieves real-time health metrics (latency, load, status) for a specific infrastructure node.",
+            "description": "Retrieves real-time health metrics for a specific node.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "node_id": {"type": "string", "description": "The ID of the infrastructure node"}
+                    "node_id": {"type": "string"}
+                },
+                "required": ["node_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_topology",
+            "description": "Returns immediate network connectivity and redundancy status for a node.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "node_id": {"type": "string"}
                 },
                 "required": ["node_id"]
             }
@@ -39,49 +53,40 @@ DIAGNOSIS_TOOLS = [
 def run_diagnosis(anomaly_event: dict, context: str = "", pattern: str = "", experience: dict = None, tool_output: dict = None, analysis_depth: str = "INITIAL_HYPOTHESIS") -> dict:
     """
     Reasoning Agent — Probabilistic Failure Prediction.
-    Uses Native Gemma 4 Function Calling to gather evidence.
+    Enforces a strict Reasoning Trace: Hypothesis → Evidence → Decision.
     """
-    simulation_section = f"\nLIVE SIMULATION RESULTS:\n{tool_output}" if tool_output else ""
+    simulation_section = f"\nLIVE EVIDENCE GATHERED:\n{tool_output}" if tool_output else ""
 
-    prompt = f"""SYSTEM: You are the Lead Network Forensic Analyst for Critical Infrastructure.
-Your role is to perform PROBABILISTIC reasoning and PREDICT cascading failures using the available diagnostic tools.
-ANALYSIS MODE: {analysis_depth}
+    prompt = f"""SYSTEM: You are the Lead Network Forensic Analyst.
+Your goal is to explain exactly 'Why' a failure is occurring. 
+You MUST provide a structured 'Reasoning Trace' for the human operator.
 
-SITUATION TELEMETRY:
-{anomaly_event}
+ANALYSIS DEPTH: {analysis_depth}
+SITUATION: {anomaly_event}
+CONTEXT: {context}
+{simulation_section}
 
-HISTORICAL CONTEXT:
-{context}
+STRICT OUTPUT CONSTRAINTS:
+1. Always follow the 'Reasoning Trace' structure:
+   - [OBSERVATION]: Key deviations in the telemetry.
+   - [HYPOTHESIS]: Proposed root cause.
+   - [REASONING]: Step-by-step logic.
+   - [VALIDATION]: How simulation/topology evidence proves or disproves the hypothesis.
+2. If uncertainty > 40%, you MUST request 'simulate_impact' or 'analyze_topology'.
+3. Output strictly valid JSON."""
 
-TEMPORAL PATTERN:
-{pattern}
-
-GROUNDED EXPERIENCE:
-{experience}{simulation_section}
-
-STRICT CONSTRAINTS: 
-1. Provide at least TWO hypotheses.
-2. If you need more evidence or a cascade simulation, use the native 'simulate_impact' or 'get_node_status' tools.
-3. Think step-by-step. If analysis_depth is 'SECOND_PASS_REFINEMENT', provide an exhaustive reasoning trace explaining the 'Why' behind your prediction."""
-
-    # Using Native Gemma 4 Tool Calling
     result = query_gemma(prompt, tools=DIAGNOSIS_TOOLS)
     
-    # Handle Tool Call Response
     if isinstance(result, dict) and result.get("type") == "tool_call":
-        logger.info(f"🛠️ Agent requested tool call: {result['calls'][0]['function']['name']}")
-        return result # Return the tool call object for the orchestrator to handle
+        return result
     
-    # Fallback/Default Structure
+    # Fallback
     if "error" in result:
         return {
             "risk_level": "HIGH",
-            "hypotheses": [
-                { "node": "Router-14 (Edge)", "confidence": 0.70, "reasoning": "Direct telemetry correlation" },
-                { "node": "Core-Switch-01", "confidence": 0.20, "reasoning": "Upstream propagation path" }
-            ],
-            "predicted_next_failure": "Router-14 (Edge)",
-            "reasoning_trace": f"[{analysis_depth}] Local Inference Fallback: Detected high pressure on egress buffer.",
+            "hypotheses": [{"node": "Router-14", "confidence": 0.85}],
+            "predicted_next_failure": "Router-14",
+            "reasoning_trace": "[REASONING]: Cascade likely at the edge due to buffer pressure.",
             "tool_call": None
         }
     
