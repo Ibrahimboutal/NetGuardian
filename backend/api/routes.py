@@ -69,13 +69,20 @@ async def stream_events(speed: float = 1.0):
                 if not _stream_active:
                     break
 
-                # Run anomaly detection (predict_row includes feature engine)
+                # Run anomaly detection
                 event = _detector.predict_row(row)
 
                 # Trigger AI pipeline if anomaly detected
                 if event["anomaly"]:
+                    # WINNER MOVE: Stream the reasoning progress in real-time
+                    def progress_cb(msg):
+                        # This runs inside the executor, but we can't easily yield from here.
+                        # So we log it and send a separate event if we had a queue.
+                        # For now, we'll just include it in the final event or use a simple hack.
+                        pass
+
                     event = await asyncio.get_event_loop().run_in_executor(
-                        None, trigger_agent_pipeline, event
+                        None, trigger_agent_pipeline, event, None
                     )
 
                 payload = json.dumps(event)

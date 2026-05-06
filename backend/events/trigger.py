@@ -1,6 +1,5 @@
 import logging
 import json
-import re
 from backend.agents.diagnosis_agent import run_diagnosis
 from backend.agents.recommendation_agent import run_recommendation
 from backend.agents.explanation_agent import run_explanation
@@ -10,151 +9,132 @@ from backend.agents.tools import TOOLS, simulate_impact
 logger = logging.getLogger(__name__)
 
 class AnomalyMemory:
-    """Enterprise-grade store for incident history and pattern detection."""
     def __init__(self, limit=5):
         self.history = []
         self.limit = limit
 
-    def add(self, event: dict):
+    def add(self, result: dict):
         summary = {
-            "timestamp": event.get("timestamp"),
-            "issue": event.get("agents", {}).get("diagnosis", {}).get("risk_level", "Unknown"),
-            "severity": event.get("severity")
+            "timestamp": result.get("timestamp"),
+            "risk": result.get("agents", {}).get("diagnosis", {}).get("risk_level", "Unknown"),
+            "action": result.get("agents", {}).get("recommendation", {}).get("decision", "None")
         }
         self.history.insert(0, summary)
         self.history = self.history[:self.limit]
 
-    def detect_pattern(self) -> dict:
-        if len(self.history) < 2:
-            return {"pattern": "Stable / Baseline establishing.", "confidence": 1.0}
-        
-        recent = self.history[:3]
-        issues = [h['issue'].lower() for h in recent]
-        
-        if any("spike" in i for i in issues) and any("loss" in i or "drop" in i for i in issues):
-            return {
-                "pattern": "ALERT: Cascading Failure Pattern Detected.",
-                "confidence": 0.82
-            }
-        
-        if len(set(issues)) == 1 and len(issues) >= 3:
-            return {
-                "pattern": "WARNING: Persistent / Sustained Incident Pattern.",
-                "confidence": 0.95
-            }
-            
-        return {"pattern": "Active / Independent events.", "confidence": 0.45}
-
     def get_context(self) -> str:
-        if not self.history:
-            return "[]"
         return json.dumps(self.history, indent=2)
 
 memory = AnomalyMemory()
 
-def execute_structured_tool(tool_call: dict):
-    if not tool_call or not isinstance(tool_call, dict):
-        return None
-    
-    name = tool_call.get("name")
-    args = tool_call.get("args", {})
-    
-    if name in TOOLS:
-        logger.info(f"⚡ Executing Structured Tool: {name}")
-        try:
-            return TOOLS[name](**args)
-        except Exception as e:
-            logger.error(f"Structured tool execution failed: {e}")
-    return None
-
-def trigger_agent_pipeline(anomaly_event: dict) -> dict:
+class Boardroom:
     """
-    Ultimate Adaptive Pipeline with Safety Guardrails:
-    1. Retrieval & Memory
-    2. Hypothesis Formation (Initial)
-    3. Tool Execution & Adaptive Refinement
-    4. Tactical Command & Safety Validation
-    5. Final Briefing
+    Shared Blackboard for Multi-Agent Collaboration.
+    Allows agents to share state, hypotheses, and tool results.
+    """
+    def __init__(self, anomaly_event: dict):
+        self.anomaly_event = anomaly_event
+        self.blackboard = {
+            "telemetry": anomaly_event,
+            "hypotheses": [],
+            "evidence": [],
+            "simulations": [],
+            "decisions": [],
+            "safety_checks": []
+        }
+        self.history = memory.get_context()
+
+    def add_evidence(self, source: str, data: dict):
+        self.blackboard["evidence"].append({"source": source, "data": data})
+
+    def add_simulation(self, node: str, result: dict):
+        self.blackboard["simulations"].append({"node": node, "result": result})
+
+def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
+    """
+    Boardroom-Style Agentic Orchestration.
+    Moves from linear pipeline to iterative reasoning.
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
 
-    # Step 1: Retrieval & Memory
+    def log_progress(msg: str):
+        if progress_cb:
+            progress_cb(msg)
+        logger.info(f"💠 {msg}")
+
+    # Initialize Shared Blackboard
+    board = Boardroom(anomaly_event)
+    log_progress("Initializing Boardroom Context...")
+    
+    # Step 1: Agentic Retrieval (Grounding)
+    log_progress("Retrieving grounded infrastructure patterns...")
     experience = retrieve_experience(str(anomaly_event))
-    pattern_data = memory.detect_pattern()
-    context = memory.get_context()
+    board.add_evidence("KnowledgeBase", experience)
 
-    # Step 2: Initial Diagnosis (T1)
-    initial_diagnosis = run_diagnosis(anomaly_event, context, str(pattern_data), experience, analysis_depth="INITIAL_HYPOTHESIS")
-    initial_confidence = float(initial_diagnosis.get("confidence", 0.5))
-
-    # Step 3: Branching Tool Execution & Adaptive Pass (T2)
-    tool_output = None
-    refined_diagnosis = initial_diagnosis
-    confidence_delta = 0.0
-    adaptive_pass = False
-
-    needs_refinement = initial_confidence < 0.6 or initial_diagnosis.get("needs_more_analysis")
-
-    if initial_diagnosis.get("tool_call") and needs_refinement:
-        tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
-        if tool_output:
-            logger.info(f"🔬 Low Confidence ({initial_confidence}): Initiating Adaptive Refinement...")
-            adaptive_pass = True
-            refined_diagnosis = run_diagnosis(
-                anomaly_event, context, str(pattern_data), experience, 
-                tool_output=tool_output, 
+    # Step 2: First Pass - Reasoning & Tool Request
+    log_progress("Gemma 4: Executing Initial Forensic Analysis...")
+    diagnosis = run_diagnosis(anomaly_event, board.history, experience=experience)
+    
+    # Step 3: The Autonomous Loop (Real Agentic Depth)
+    tool_results = None
+    if diagnosis.get("tool_call"):
+        tool_name = diagnosis["tool_call"].get("name")
+        tool_args = diagnosis["tool_call"].get("args", {})
+        
+        if tool_name in TOOLS:
+            log_progress(f"Agent Action: Requesting {tool_name} simulation...")
+            tool_results = TOOLS[tool_name](**tool_args)
+            board.add_simulation(tool_args.get("node_id"), tool_results)
+            
+            # REFINEMENT PASS: Re-evaluate diagnosis with new evidence
+            log_progress("Refining hypothesis with simulation evidence...")
+            diagnosis = run_diagnosis(
+                anomaly_event, board.history, 
+                experience=experience, 
+                tool_output=tool_results,
                 analysis_depth="SECOND_PASS_REFINEMENT"
             )
-            confidence_delta = round(float(refined_diagnosis.get("confidence", 0.5)) - initial_confidence, 2)
-    elif initial_diagnosis.get("tool_call"):
-        tool_output = execute_structured_tool(initial_diagnosis["tool_call"])
 
-    # Step 4: Tactical Command with Safety Guardrails
-    recommendation = run_recommendation(anomaly_event, refined_diagnosis, context, str(pattern_data))
+    # Step 4: Command & Safety (Boardroom Review)
+    log_progress("Command Agent: Evaluating tactical interventions...")
+    recommendation = run_recommendation(anomaly_event, diagnosis, board.history)
     
-    # SAFETY GUARDRAIL: Pre-Execution Simulation
-    safety_check = "NOT_REQUIRED"
-    target_node = refined_diagnosis.get("predicted_next_failure", "Unknown")
-    
+    # Safety Check: Pre-execution simulation of the recommendation
+    safety_status = "PASSED"
     if recommendation.get("actions"):
-        logger.info("🛡️ Safety Guardrail: Verifying mitigation impact...")
-        safety_check = "PASSED"
-        # Simulate the 'Isolate' or 'Reroute' action
-        pre_sim = simulate_impact(target_node, "mitigation_validation")
-        if pre_sim.get("affected_nodes_count", 0) > 10: # If mitigation causes a bigger failure
-            logger.warning("⚠️ Safety Warning: Proposed mitigation may cause excessive service loss.")
-            safety_check = "RISK_DETECTED"
+        log_progress("Safety Board: Verifying mitigation impact...")
+        target = diagnosis.get("predicted_next_failure", "Unknown")
+        sim = simulate_impact(target, "mitigation_validation")
+        board.blackboard["safety_checks"].append(sim)
+        if sim.get("affected_nodes_count", 0) > 8:
+            safety_status = "RISK_DETECTED"
+            log_progress("Safety Warning: Mitigation risk exceeds threshold!")
 
-    # Execute mitigation
+    # Step 5: Execution of Approved Mitigations
     action_results = []
     for action in recommendation.get("actions", []):
-        if action.get("tool"):
-            res = execute_structured_tool({
-                "name": action["tool"], 
-                "args": {"action": action["action"], "target": target_node}
-            })
-            if res:
-                action_results.append(res)
+        if action.get("tool") and safety_status == "PASSED":
+            log_progress(f"Executing: {action['action']} on target node...")
+            res = TOOLS[action["tool"]](action["action"], diagnosis.get("predicted_next_failure"))
+            action_results.append(res)
 
-    # Step 5: Briefing
-    explanation = run_explanation(anomaly_event, refined_diagnosis, recommendation, context, str(pattern_data))
+    # Step 6: Crisis Briefing
+    log_progress("Generating final crisis briefing...")
+    explanation = run_explanation(anomaly_event, diagnosis, recommendation, board.blackboard)
 
     result = {
         **anomaly_event,
         "belief_evolution": {
-            "initial_confidence": initial_confidence,
-            "refined_confidence": float(refined_diagnosis.get("confidence", initial_confidence)),
-            "confidence_delta": confidence_delta,
-            "adaptive_pass_triggered": adaptive_pass,
-            "safety_check": safety_check
+            "initial_confidence": diagnosis.get("confidence", 0.5),
+            "safety_check": safety_status,
+            "boardroom_cycles": 2 if tool_results else 1
         },
-        "pattern_intelligence": pattern_data,
         "grounded_experience": experience,
-        "simulation_results": tool_output,
+        "simulation_results": tool_results,
         "mitigation_results": action_results,
         "agents": {
-            "diagnosis": refined_diagnosis,
+            "diagnosis": diagnosis,
             "recommendation": recommendation,
             "explanation": explanation,
         },
@@ -162,4 +142,5 @@ def trigger_agent_pipeline(anomaly_event: dict) -> dict:
     }
     
     memory.add(result)
+    log_progress("Incident Stabilized. Briefing ready.")
     return result
