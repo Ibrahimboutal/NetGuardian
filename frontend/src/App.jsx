@@ -9,7 +9,7 @@ import {
   BarChart2, AlertTriangle, Server
 } from "lucide-react";
 
-const API = "http://localhost:8000";
+const API = "http://127.0.0.1:8000";
 const MAX_DATA_POINTS = 120;
 const MAX_ANOMALIES = 50;
 

@@ -1,6 +1,6 @@
 import logging
 import json
-from .tools import TOOLS, TOOL_REGISTRY, simulate_impact, normalize_args, sim
+from backend.agents.tools import TOOLS, TOOL_REGISTRY, simulate_impact, normalize_args, sim
 
 logger = logging.getLogger(__name__)
 
