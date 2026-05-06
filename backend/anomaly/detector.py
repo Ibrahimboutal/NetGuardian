@@ -94,7 +94,12 @@ class AnomalyDetector:
             self.steps_since_last_fit = 0
             self.save_model()
 
-    def predict(self, features: np.ndarray) -> tuple:
+    def predict(self, features: np.ndarray, node_id: str = "Router-14") -> tuple:
+        """
+        Self-Aware Inference: Adjusts sensitivity based on active AI mitigations.
+        """
+        from backend.agents.tools import sim # Lazy import to avoid circularity
+        
         if not self.is_trained:
             self.train_step(features)
             return False, 0.0, "normal", []
@@ -103,6 +108,16 @@ class AnomalyDetector:
         score = float(self.model.score_samples(X)[0])
         is_anomaly = bool(self.model.predict(X)[0] == -1)
         
+        # ENVIRONMENT FEEDBACK LOOP: 
+        # If the AI has already applied a mitigation, the 'anomaly' might be expected behavior.
+        node_state = sim.node_states.get(node_id, {})
+        status = node_state.get("status", "Healthy")
+        
+        if is_anomaly and status in ["Isolated", "Throttled", "Rerouted"]:
+            logger.info(f"🛡️ Sentinel Feedback: Suppressing anomaly on {node_id} (Active Mitigation: {status})")
+            is_anomaly = False # Suppress false alarm from own action
+            score *= 0.5 # Lower confidence
+            
         attribution = []
         if is_anomaly:
             train_mean = np.mean(self.training_data, axis=0)

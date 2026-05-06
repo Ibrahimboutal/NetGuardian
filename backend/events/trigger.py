@@ -40,6 +40,7 @@ class Boardroom:
             "evidence": [],
             "simulations": [],
             "decisions": [],
+            "conflicts": [],
             "safety_checks": []
         }
         self.history = memory.get_context()
@@ -49,17 +50,35 @@ class Boardroom:
 
     def add_simulation(self, node: str, result: dict):
         self.blackboard["simulations"].append({"node": node, "result": result})
+        
+    def check_for_conflicts(self, diagnosis: dict):
+        """High-Impact: Detects if Gemma 4 is providing contradictory theories."""
+        hyps = diagnosis.get("hypotheses", [])
+        if len(hyps) > 1:
+            conf_diff = abs(hyps[0].get("confidence", 0) - hyps[1].get("confidence", 0))
+            if conf_diff < 0.15:
+                conflict = f"CONTRADICTION: Low confidence delta between {hyps[0]['node']} and {hyps[1]['node']}"
+                self.blackboard["conflicts"].append(conflict)
+                return True
+        return False
+
+    def get_context(self) -> str:
+        return json.dumps(self.blackboard, indent=2)
 
 def dispatch_tool(tool_call_request: dict) -> dict:
-    """Robust Tool Dispatcher: Maps LLM requests to Python functions with error handling."""
+    """Robust & Ontology-Aware Tool Dispatcher."""
+    from backend.agents.tools import TOOL_REGISTRY
     try:
-        func_name = tool_call_request["function"]["name"]
+        raw_func_name = tool_call_request["function"]["name"]
+        # Ontology Mapping: Convert LLM aliases to canonical Python names
+        func_name = TOOL_REGISTRY.get(raw_func_name.lower(), raw_func_name)
+        
         args = json.loads(tool_call_request["function"]["arguments"])
         
         if func_name in TOOLS:
-            logger.info(f"⚡ Executing Agent Tool: {func_name}")
+            logger.info(f"⚡ Dispatching Canonical Tool: {func_name}")
             return TOOLS[func_name](**args)
-        return {"error": f"Tool '{func_name}' not found."}
+        return {"error": f"Tool '{func_name}' not found in registry."}
     except Exception as e:
         logger.error(f"Tool Dispatch Error: {e}")
         return {"error": str(e)}
@@ -88,6 +107,7 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
     # --- THE RECURSIVE LOOP (Multi-Tool Chaining) ---
     max_iterations = 3
     current_diagnosis = None
+    i = 0
     
     for i in range(max_iterations):
         log_progress(f"Boardroom Cycle {i+1}: Analyzing evidence...")
@@ -108,10 +128,14 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
             log_progress(f"Agent Logic: Chaining tool '{tool_name}'...")
             res = dispatch_tool(call)
             board.add_simulation(tool_name, res)
+            
+            # CONFLICT CHECK: Does this new evidence contradict our previous hypothesis?
+            if board.check_for_conflicts(current_diagnosis):
+                log_progress("RESOLUTION TRIGGERED: Contradictory evidence detected. Re-evaluating...")
+                
             log_progress(f"Tool Evidence Integrated: {tool_name} success.")
-            continue # Next iteration will see the new evidence
+            continue 
         else:
-            # No tool call? We have a final diagnosis.
             log_progress("Hypothesis Stabilized. Moving to Tactical Command.")
             break
 
@@ -152,7 +176,7 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
     result = {
         **anomaly_event,
         "belief_evolution": {
-            "initial_confidence": current_diagnosis.get("confidence", 0.7),
+            "initial_confidence": current_diagnosis.get("confidence", 0.7) if isinstance(current_diagnosis, dict) else 0.5,
             "safety_check": safety_status,
             "boardroom_cycles": i + 1
         },

@@ -4,17 +4,40 @@ import math
 
 logger = logging.getLogger(__name__)
 
-# Basic Network Topology Graph
-# Nodes: Routers, Edges: Connections
+# Regional Infrastructure Grid (Expanded for Technical Depth)
 NETWORK_TOPOLOGY = {
-    "Router-01": ["Router-02", "Router-05"],
-    "Router-02": ["Router-01", "Router-03", "Router-14"],
-    "Router-03": ["Router-02", "Router-04"],
-    "Router-04": ["Router-03", "Core-DC-01"],
-    "Router-05": ["Router-01", "Switch-02"],
-    "Switch-02": ["Router-05", "Router-14"],
+    "Router-01": ["Router-02", "Router-05", "Substation-Alpha"],
+    "Router-02": ["Router-01", "Router-03", "Router-14", "Node-X"],
+    "Router-03": ["Router-02", "Router-04", "Node-Y"],
+    "Router-04": ["Router-03", "Core-DC-01", "Regional-Hub-South"],
+    "Router-05": ["Router-01", "Switch-02", "Regional-Hub-North"],
+    "Switch-02": ["Router-05", "Router-14", "Substation-Beta"],
     "Router-14": ["Router-02", "Switch-02", "Core-DC-01"],
-    "Core-DC-01": ["Router-04", "Router-14"]
+    "Core-DC-01": ["Router-04", "Router-14", "Backup-Vault-01"],
+    "Substation-Alpha": ["Router-01"],
+    "Substation-Beta": ["Switch-02"],
+    "Regional-Hub-North": ["Router-05", "Node-A"],
+    "Regional-Hub-South": ["Router-04", "Node-B"],
+    "Node-A": ["Regional-Hub-North"],
+    "Node-B": ["Regional-Hub-South"],
+    "Node-X": ["Router-02"],
+    "Node-Y": ["Router-03"],
+    "Backup-Vault-01": ["Core-DC-01"]
+}
+
+# Robust Ontology Mapping (Aliases)
+TOOL_REGISTRY = {
+    "isolate": "execute_mitigation",
+    "isolate_node": "execute_mitigation",
+    "block": "execute_mitigation",
+    "throttle": "throttle_traffic",
+    "limit": "throttle_traffic",
+    "reroute": "reroute_path",
+    "switch": "reroute_path",
+    "simulate": "simulate_impact",
+    "predict": "simulate_impact",
+    "status": "get_node_status",
+    "check": "get_node_status"
 }
 
 class NetworkSimulator:
