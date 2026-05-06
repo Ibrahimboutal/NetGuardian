@@ -4,7 +4,7 @@ from backend.agents.diagnosis_agent import run_diagnosis
 from backend.agents.recommendation_agent import run_recommendation
 from backend.agents.explanation_agent import run_explanation
 from backend.agents.knowledge_base import retrieve_experience
-from backend.agents.tools import TOOLS, simulate_impact
+from backend.agents.tools import TOOLS, simulate_impact, execute_mitigation
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +50,24 @@ class Boardroom:
     def add_simulation(self, node: str, result: dict):
         self.blackboard["simulations"].append({"node": node, "result": result})
 
+def dispatch_tool(tool_call_request: dict) -> dict:
+    """Robust Tool Dispatcher: Maps LLM requests to Python functions with error handling."""
+    try:
+        func_name = tool_call_request["function"]["name"]
+        args = json.loads(tool_call_request["function"]["arguments"])
+        
+        if func_name in TOOLS:
+            logger.info(f"⚡ Executing Agent Tool: {func_name}")
+            return TOOLS[func_name](**args)
+        return {"error": f"Tool '{func_name}' not found."}
+    except Exception as e:
+        logger.error(f"Tool Dispatch Error: {e}")
+        return {"error": str(e)}
+
 def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
     """
-    Boardroom-Style Agentic Orchestration.
-    Moves from linear pipeline to iterative reasoning.
+    Advanced Recursive Boardroom Orchestration.
+    Allows for multi-step tool chaining and stateful refinement.
     """
     if not anomaly_event.get("anomaly"):
         return {**anomaly_event, "agents": None}
@@ -63,88 +77,94 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None) -> dict:
             progress_cb(msg)
         logger.info(f"💠 {msg}")
 
-    # Initialize Shared Blackboard
+    # Initialize Boardroom
     board = Boardroom(anomaly_event)
     log_progress("Initializing Boardroom Context...")
     
-    # Step 1: Agentic Retrieval (Grounding)
-    log_progress("Retrieving grounded infrastructure patterns...")
+    # Grounding
     experience = retrieve_experience(str(anomaly_event))
     board.add_evidence("KnowledgeBase", experience)
 
-    # Step 2: First Pass - Reasoning & Tool Request
-    log_progress("Gemma 4: Executing Initial Forensic Analysis...")
-    diagnosis = run_diagnosis(anomaly_event, board.history, experience=experience)
+    # --- THE RECURSIVE LOOP (Multi-Tool Chaining) ---
+    max_iterations = 3
+    current_diagnosis = None
     
-    # Step 3: The Autonomous Loop (Real Agentic Depth)
-    tool_results = None
-    if diagnosis.get("tool_call"):
-        tool_name = diagnosis["tool_call"].get("name")
-        tool_args = diagnosis["tool_call"].get("args", {})
+    for i in range(max_iterations):
+        log_progress(f"Boardroom Cycle {i+1}: Analyzing evidence...")
         
-        if tool_name in TOOLS:
-            log_progress(f"Agent Action: Requesting {tool_name} simulation...")
-            tool_results = TOOLS[tool_name](**tool_args)
-            board.add_simulation(tool_args.get("node_id"), tool_results)
+        # Diagnosis Agent can request tools
+        current_diagnosis = run_diagnosis(
+            anomaly_event, 
+            board.get_context(), 
+            experience=experience,
+            analysis_depth="DEEP_RECURSION" if i > 0 else "INITIAL"
+        )
+        
+        # If it's a tool call, dispatch it and continue the loop
+        if isinstance(current_diagnosis, dict) and current_diagnosis.get("type") == "tool_call":
+            call = current_diagnosis["calls"][0]
+            tool_name = call["function"]["name"]
             
-            # REFINEMENT PASS: Re-evaluate diagnosis with new evidence
-            log_progress("Refining hypothesis with simulation evidence...")
-            diagnosis = run_diagnosis(
-                anomaly_event, board.history, 
-                experience=experience, 
-                tool_output=tool_results,
-                analysis_depth="SECOND_PASS_REFINEMENT"
-            )
+            log_progress(f"Agent Logic: Chaining tool '{tool_name}'...")
+            res = dispatch_tool(call)
+            board.add_simulation(tool_name, res)
+            log_progress(f"Tool Evidence Integrated: {tool_name} success.")
+            continue # Next iteration will see the new evidence
+        else:
+            # No tool call? We have a final diagnosis.
+            log_progress("Hypothesis Stabilized. Moving to Tactical Command.")
+            break
 
-    # Step 4: Command & Safety (Boardroom Review)
-    log_progress("Command Agent: Evaluating tactical interventions...")
-    recommendation = run_recommendation(anomaly_event, diagnosis, board.get_context())
+    # Step 4: Command & Safety (Stateful)
+    log_progress("Command Agent: Formulating intervention strategy...")
+    recommendation = run_recommendation(anomaly_event, current_diagnosis, board.get_context())
+    
     board.blackboard["decisions"].append({
         "strategy": recommendation.get("decision"),
         "justification": recommendation.get("strategic_justification")
     })
-    log_progress(f"Strategic Decision: {recommendation.get('decision')}")
-    log_progress(f"Justification: {recommendation.get('strategic_justification')}")
+    
+    # Safety Validation
     safety_status = "PASSED"
     if recommendation.get("actions"):
-        log_progress("Safety Board: Verifying mitigation impact...")
-        target = diagnosis.get("predicted_next_failure", "Unknown")
-        sim = simulate_impact(target, "mitigation_validation")
-        board.blackboard["safety_checks"].append(sim)
-        if sim.get("affected_nodes_count", 0) > 8:
-            safety_status = "RISK_DETECTED"
-            log_progress("Safety Warning: Mitigation risk exceeds threshold!")
+        log_progress("Safety Board: Simulating mitigation side-effects...")
+        target = current_diagnosis.get("predicted_next_failure", "Unknown")
+        sim_res = simulate_impact(target, "mitigation_validation")
+        board.blackboard["safety_checks"].append(sim_res)
+        
+        if sim_res.get("affected_nodes", 0) > 6:
+            safety_status = "RISK_WARNING"
+            log_progress("Safety Warning: High potential for collateral service loss.")
 
-    # Step 5: Execution of Approved Mitigations
+    # Step 5: Execution (World-State Change)
     action_results = []
     for action in recommendation.get("actions", []):
-        if action.get("tool") and safety_status == "PASSED":
-            log_progress(f"Executing: {action['action']} on target node...")
-            res = TOOLS[action["tool"]](action["action"], diagnosis.get("predicted_next_failure"))
+        if action.get("tool") and safety_status != "BLOCKED":
+            log_progress(f"Executing Mitigation: {action['action']}...")
+            # Robust tool execution
+            res = execute_mitigation(action.get("tool_action", action["action"]), current_diagnosis.get("predicted_next_failure"))
             action_results.append(res)
 
-    # Step 6: Crisis Briefing
-    log_progress("Generating final crisis briefing...")
-    explanation = run_explanation(anomaly_event, diagnosis, recommendation, board.blackboard)
+    # Final Briefing
+    log_progress("Finalizing Crisis Briefing...")
+    explanation = run_explanation(anomaly_event, current_diagnosis, recommendation, board.blackboard)
 
     result = {
         **anomaly_event,
         "belief_evolution": {
-            "initial_confidence": diagnosis.get("confidence", 0.5),
+            "initial_confidence": current_diagnosis.get("confidence", 0.7),
             "safety_check": safety_status,
-            "boardroom_cycles": 2 if tool_results else 1
+            "boardroom_cycles": i + 1
         },
-        "grounded_experience": experience,
-        "simulation_results": tool_results,
         "mitigation_results": action_results,
         "agents": {
-            "diagnosis": diagnosis,
+            "diagnosis": current_diagnosis,
             "recommendation": recommendation,
             "explanation": explanation,
         },
-        "memory": memory.history,
+        "blackboard": board.blackboard
     }
     
     memory.add(result)
-    log_progress("Incident Stabilized. Briefing ready.")
+    log_progress("Incident Stabilized. NetGuardian Standby.")
     return result

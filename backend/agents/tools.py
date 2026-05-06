@@ -62,41 +62,57 @@ class NetworkSimulator:
         
         return affected
 
+    def apply_mitigation(self, node_id, action, params=None):
+        """State Evolution: Actually changes the world state."""
+        if node_id not in self.node_states:
+            return False
+            
+        if action == "isolate":
+            self.node_states[node_id]["status"] = "Isolated"
+            self.node_states[node_id]["load"] = 0
+        elif action == "throttle":
+            pct = params.get("pct", 50) if params else 50
+            self.node_states[node_id]["status"] = "Throttled"
+            self.node_states[node_id]["load"] = max(10, self.node_states[node_id]["load"] - pct)
+        elif action == "reroute":
+            self.node_states[node_id]["status"] = "Rerouted"
+            self.node_states[node_id]["latency"] += 10 # Cost of redundancy
+            
+        logger.info(f"🌐 SIMULATOR STATE UPDATED: {node_id} is now {self.node_states[node_id]['status']}")
+        return True
+
 # Singleton
 sim = NetworkSimulator(NETWORK_TOPOLOGY)
 
 def get_node_status(node_id: str):
     """Tool: Returns live health metrics for a specific infrastructure node."""
     logger.info(f"🛠️ Tool Calling: get_node_status({node_id})")
-    status = sim.node_states.get(node_id, {"status": "Unknown"})
+    status = sim.node_states.get(node_id, {"status": "Unknown", "latency": 0, "load": 0})
     return {
         "node": node_id,
         "metrics": status,
-        "active_alerts": ["Thermal Warning"] if status.get("load", 0) > 80 else []
+        "active_alerts": ["High Pressure"] if status.get("load", 0) > 80 else []
     }
 
-def simulate_impact(node_id: str, failure_type: str):
-    """Tool: Runs a graph-based simulation to predict the impact of a node failure."""
+def simulate_impact(node_id: str, failure_type: str = "buffer_exhaustion"):
+    """Tool: Runs a graph-based simulation to predict impact."""
     logger.info(f"🛠️ Tool Calling: simulate_impact({node_id}, {failure_type})")
     propagation = sim.simulate_failure(node_id, failure_type)
-    
     return {
         "start_node": node_id,
-        "failure_type": failure_type,
-        "affected_nodes_count": len(propagation),
-        "propagation_map": propagation,
-        "predicted_outcome": "Cascading Failure" if len(propagation) > 3 else "Isolated Incident",
-        "time_to_critical_failure": "45-90 seconds"
+        "affected_nodes": len(propagation),
+        "risk": "CRITICAL" if len(propagation) > 4 else "LOW"
     }
 
 def execute_mitigation(action: str, target: str):
-    """Tool: Executes a defensive action (ACL update, traffic rerouting, node isolation)."""
+    """Tool: Executes a defensive action and updates the world state."""
     logger.info(f"🛠️ Tool Calling: execute_mitigation({action}, {target})")
+    success = sim.apply_mitigation(target, action.lower())
     return {
-        "status": "Success",
-        "intervention": action,
+        "status": "Applied" if success else "Failed",
+        "action": action,
         "target": target,
-        "impact_recovery_est": "15 minutes"
+        "current_health": sim.node_states.get(target)
     }
 
 def analyze_topology(node_id: str):
