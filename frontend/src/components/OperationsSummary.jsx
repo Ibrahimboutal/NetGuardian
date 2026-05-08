@@ -1,4 +1,5 @@
-import { Activity, BarChart3, History, RefreshCcw, ShieldAlert, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, BarChart3, ChevronRight, History, RefreshCcw, ShieldAlert, Sparkles } from "lucide-react";
 
 function SmallMetric({ label, value, note, tone = "blue" }) {
   return (
@@ -52,6 +53,8 @@ export default function OperationsSummary({
   summary,
   recentIncidents,
   benchmark,
+  insights,
+  forecast,
   benchmarkLoading,
   onRefresh,
   onRunBenchmark,
@@ -59,9 +62,37 @@ export default function OperationsSummary({
 }) {
   const aiMetrics = benchmark?.results?.net_guardian_ai;
   const baseMetrics = benchmark?.results?.adaptive_ma_baseline;
+  const cascade = summary?.cascade || forecast?.cascade;
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+
+  const cascadeSteps = cascade?.steps || [];
+
+  useEffect(() => {
+    if (cascadeSteps.length === 0) {
+      setActiveStepIndex(0);
+      return;
+    }
+
+    if (activeStepIndex >= cascadeSteps.length) {
+      setActiveStepIndex(0);
+    }
+  }, [activeStepIndex, cascadeSteps.length]);
+
+  const activeStep = useMemo(() => {
+    if (cascadeSteps.length === 0) return null;
+    return cascadeSteps[Math.min(activeStepIndex, cascadeSteps.length - 1)];
+  }, [activeStepIndex, cascadeSteps]);
+
+  const cascadeTone = cascade?.risk_level === "high"
+    ? "#ef4444"
+    : cascade?.risk_level === "medium"
+      ? "#f59e0b"
+      : cascade?.risk_level === "low"
+        ? "#10b981"
+        : "#64748b";
 
   return (
-    <div className="feed-panel" style={{ maxHeight: 340 }}>
+    <div className="feed-panel" style={{ maxHeight: 420 }}>
       <div className="panel-header">
         <div className="panel-title">
           <Sparkles size={14} color="#10b981" />
@@ -117,6 +148,114 @@ export default function OperationsSummary({
               precision {baseMetrics?.precision ?? "—"} · recall {baseMetrics?.recall ?? "—"}
             </div>
           </div>
+        </div>
+
+        <div style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)", background: "rgba(16,185,129,0.05)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: "#10b981", fontWeight: 700, textTransform: "uppercase" }}>Recurring Pattern</div>
+            <div style={{ fontSize: 8, color: "#94a3b8" }}>last {insights?.recurrence_window ?? 0} incidents</div>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9" }}>
+            {insights?.recurring_case ? insights.recurring_case : "No dominant pattern yet"}
+          </div>
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+            {insights?.forecast || "Collecting memory"}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 999, background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+              share {(insights?.recurring_case_rate ?? 0).toFixed(2)}
+            </span>
+            <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 999, background: "rgba(6,182,212,0.12)", color: "#06b6d4" }}>
+              metric {insights?.dominant_metric || "—"}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(249,115,22,0.2)", background: "rgba(249,115,22,0.05)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700, textTransform: "uppercase" }}>60s Forecast</div>
+            <div style={{ fontSize: 8, color: "#94a3b8" }}>{forecast?.window_size ?? 0} recent incidents</div>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9" }}>
+            {forecast?.risk_level ? `${forecast.risk_level.toUpperCase()} risk` : "No forecast yet"}
+          </div>
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+            {forecast?.reason || "Need more history to forecast."}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 999, background: "rgba(249,115,22,0.12)", color: "#f59e0b" }}>
+              confidence {(forecast?.confidence ?? 0).toFixed(2)}
+            </span>
+            <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 999, background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}>
+              next {forecast?.next_metric || "—"}
+            </span>
+          </div>
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6 }}>
+            Next action: {forecast?.next_action || "Collect telemetry"}
+          </div>
+        </div>
+
+        <div style={{ padding: 10, borderRadius: 8, border: `1px solid ${cascadeTone}33`, background: `${cascadeTone}10` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: cascadeTone, fontWeight: 700, textTransform: "uppercase" }}>Cascade Timeline</div>
+            <div style={{ fontSize: 8, color: "#94a3b8" }}>{cascade?.horizon_sec ?? 0}s spread view</div>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9" }}>
+            {cascade?.summary || "No cascade signal yet"}
+          </div>
+          <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+            {(cascade?.steps || []).length > 0 ? cascade.steps.map(step => (
+              <button
+                key={`${step.window_sec}-${step.label}`}
+                type="button"
+                onClick={() => setActiveStepIndex(cascadeSteps.findIndex(candidate => candidate.window_sec === step.window_sec && candidate.label === step.label))}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "42px 1fr",
+                  gap: 8,
+                  alignItems: "start",
+                  width: "100%",
+                  textAlign: "left",
+                  background: activeStep?.window_sec === step.window_sec && activeStep?.label === step.label ? "rgba(59,130,246,0.08)" : "transparent",
+                  border: activeStep?.window_sec === step.window_sec && activeStep?.label === step.label ? "1px solid rgba(59,130,246,0.35)" : "1px solid #1e2d4a",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontSize: 8, color: "#94a3b8", paddingTop: 2 }}>{step.window_sec}s</div>
+                <div style={{ padding: 0, borderRadius: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#f1f5f9" }}>{step.label}</div>
+                    <ChevronRight size={10} color={cascadeTone} />
+                  </div>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                    node {step.node || "—"} · signal {step.signal || "—"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 4, lineHeight: 1.35 }}>
+                    {step.effect}
+                  </div>
+                </div>
+              </button>
+            )) : (
+              <div style={{ fontSize: 10, color: "#94a3b8" }}>Collecting enough memory to simulate spread.</div>
+            )}
+          </div>
+          {activeStep && (
+            <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "#0a0e1a", border: "1px solid #1e2d4a" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                <div style={{ fontSize: 9, color: cascadeTone, fontWeight: 700, textTransform: "uppercase" }}>Selected Phase</div>
+                <div style={{ fontSize: 8, color: "#94a3b8" }}>{activeStep.window_sec}s</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginTop: 4 }}>{activeStep.label}</div>
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                node {activeStep.node || "—"} · signal {activeStep.signal || "—"}
+              </div>
+              <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 6, lineHeight: 1.35 }}>
+                {activeStep.effect}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>

@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, lazy, useState, useEffect, useRef, useCallback } from "react";
 import "./index.css";
 import StatusBadge from "./components/StatusBadge";
 import MetricChart from "./components/MetricChart";
-import AnomalyFeed from "./components/AnomalyFeed";
-import AIPanel from "./components/AIPanel";
-import OperationsSummary from "./components/OperationsSummary";
 import {
   Activity, Play, Square, Zap, Wifi, Clock,
   BarChart2, AlertTriangle, Server
 } from "lucide-react";
+
+const AnomalyFeed = lazy(() => import("./components/AnomalyFeed"));
+const AIPanel = lazy(() => import("./components/AIPanel"));
+const OperationsSummary = lazy(() => import("./components/OperationsSummary"));
 
 const API = "http://127.0.0.1:8000";
 const MAX_DATA_POINTS = 120;
@@ -46,6 +47,8 @@ export default function App() {
   const [clock, setClock] = useState(new Date());
   const [injectLoading, setInjectLoading] = useState(false);
   const [systemSummary, setSystemSummary] = useState(null);
+  const [incidentInsights, setIncidentInsights] = useState(null);
+  const [incidentForecast, setIncidentForecast] = useState(null);
   const [recentIncidents, setRecentIncidents] = useState([]);
   const [benchmark, setBenchmark] = useState(null);
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
@@ -54,14 +57,20 @@ export default function App() {
 
   const refreshOperationalData = useCallback(async () => {
     try {
-      const [summaryRes, incidentsRes] = await Promise.all([
+      const [summaryRes, incidentsRes, insightsRes, forecastRes] = await Promise.all([
         fetch(`${API}/api/system/summary`),
         fetch(`${API}/api/incidents/recent?limit=5`),
+        fetch(`${API}/api/incidents/insights`),
+        fetch(`${API}/api/incidents/forecast`),
       ]);
       const summaryJson = await summaryRes.json();
       const incidentsJson = await incidentsRes.json();
+      const insightsJson = await insightsRes.json();
+      const forecastJson = await forecastRes.json();
       setSystemSummary(summaryJson);
       setRecentIncidents(Array.isArray(incidentsJson?.data) ? incidentsJson.data : []);
+      setIncidentInsights(insightsJson);
+      setIncidentForecast(forecastJson);
     } catch (err) {
       console.error("Refresh operational data failed:", err);
     }
@@ -108,19 +117,25 @@ export default function App() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [historyRes, summaryRes, incidentsRes] = await Promise.all([
+        const [historyRes, summaryRes, incidentsRes, insightsRes, forecastRes] = await Promise.all([
           fetch(`${API}/api/metrics/history`),
           fetch(`${API}/api/system/summary`),
           fetch(`${API}/api/incidents/recent?limit=5`),
+          fetch(`${API}/api/incidents/insights`),
+          fetch(`${API}/api/incidents/forecast`),
         ]);
 
         const historyJson = await historyRes.json();
         const summaryJson = await summaryRes.json();
         const incidentsJson = await incidentsRes.json();
+        const insightsJson = await insightsRes.json();
+        const forecastJson = await forecastRes.json();
 
         setData(historyJson.data.slice(-MAX_DATA_POINTS));
         setSystemSummary(summaryJson);
         setRecentIncidents(Array.isArray(incidentsJson?.data) ? incidentsJson.data : []);
+        setIncidentInsights(insightsJson);
+        setIncidentForecast(forecastJson);
         setStatus("stable");
       } catch {
         setStatus("stable");
@@ -290,32 +305,40 @@ export default function App() {
 
         {/* Right Column */}
         <div className="right-panel">
-          <OperationsSummary
-            summary={systemSummary}
-            recentIncidents={recentIncidents}
-            benchmark={benchmark}
-            benchmarkLoading={benchmarkLoading}
-            onRefresh={refreshOperationalData}
-            onRunBenchmark={runBenchmark}
-            onDownloadReport={downloadReport}
-          />
+          <Suspense fallback={<div className="feed-panel" style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading operations snapshot…</div>}>
+            <OperationsSummary
+              summary={systemSummary}
+              insights={incidentInsights}
+              forecast={incidentForecast}
+              recentIncidents={recentIncidents}
+              benchmark={benchmark}
+              benchmarkLoading={benchmarkLoading}
+              onRefresh={refreshOperationalData}
+              onRunBenchmark={runBenchmark}
+              onDownloadReport={downloadReport}
+            />
+          </Suspense>
 
           {/* Anomaly Feed */}
-          <div className="feed-panel">
-            <div className="panel-header">
-              <div className="panel-title">
-                <AlertTriangle size={14} color="#ef4444" />
-                Anomaly Feed
+          <Suspense fallback={<div className="feed-panel" style={{ minHeight: 180, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading anomaly feed…</div>}>
+            <div className="feed-panel">
+              <div className="panel-header">
+                <div className="panel-title">
+                  <AlertTriangle size={14} color="#ef4444" />
+                  Anomaly Feed
+                </div>
+                {anomalies.length > 0 && (
+                  <span className="anomaly-count-badge">{anomalies.length}</span>
+                )}
               </div>
-              {anomalies.length > 0 && (
-                <span className="anomaly-count-badge">{anomalies.length}</span>
-              )}
+              <AnomalyFeed events={anomalies} />
             </div>
-            <AnomalyFeed events={anomalies} />
-          </div>
+          </Suspense>
 
           {/* AI Panel */}
-          <AIPanel incident={latestIncident} thinking={thinking} />
+          <Suspense fallback={<div className="ai-panel" style={{ minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading reasoning panel…</div>}>
+            <AIPanel incident={latestIncident} thinking={thinking} />
+          </Suspense>
         </div>
       </main>
     </div>
