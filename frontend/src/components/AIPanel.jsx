@@ -46,7 +46,7 @@ export default function AIPanel({ incident, thinking }) {
         <div className="panel-title" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Brain size={14} color="#3b82f6" />
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.5px" }}>GEMMA 4 EDGE INTELLIGENCE</span>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.5px" }}>GEMMA-ASSISTED EDGE INTELLIGENCE</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.8 }}>
             <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 500 }}>POWERED BY</span>
@@ -234,7 +234,7 @@ export default function AIPanel({ incident, thinking }) {
 
             <div style={{ marginTop: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Gemma 4 Reasoning Trace</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Model Reasoning Trace</div>
               </div>
               <div style={{ 
                 padding: 10, background: "#0a0e1a", borderRadius: 6, border: "1px solid #1e2d4a",

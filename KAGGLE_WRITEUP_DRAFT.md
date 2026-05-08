@@ -3,7 +3,7 @@
 
 NetGuardian is a local-first incident response system for remote telecom and critical infrastructure environments. It watches live telemetry, detects abnormal behavior, simulates likely failure cascades, and generates an operator-facing briefing with mitigation guidance. The goal is not to replace operators. The goal is to help them move faster, with better evidence, when connectivity is unreliable and the system is under stress.
 
-This project was built for the Gemma 4 Good Hackathon and focuses on the Global Resilience theme. The demo shows an end-to-end workflow: telemetry replay, anomaly scoring, graph-based impact simulation, and a Gemma-backed agent layer that produces a grounded diagnosis, recommendation, and explanation.
+This project was built for the Gemma 4 Good Hackathon and focuses on the Global Resilience theme. The demo shows an end-to-end workflow: telemetry replay, anomaly scoring, graph-based impact simulation, and a local model-backed agent layer that produces a grounded diagnosis, recommendation, and explanation.
 
 ### Problem
 
@@ -36,15 +36,15 @@ The frontend is a React/Vite dashboard that shows:
 
 The UI is intentionally built around that incident contract, so the operator sees one consistent flow from detection to explanation.
 
-### How Gemma 4 Is Used
+### How the Local Model Is Used
 
-Gemma 4 is used as the reasoning and communication layer. The agents are organized around three tasks:
+The local language model is used as the reasoning and communication layer. The agents are organized around three tasks:
 
 - `diagnosis_agent.py` prepares a structured prompt for root-cause reasoning and can request tool grounding through functions such as `simulate_impact`, `get_node_status`, and `analyze_topology`.
 - `recommendation_agent.py` converts grounded diagnosis output into a mitigation choice while explaining the trade-off.
 - `explanation_agent.py` turns the incident into an operator-friendly briefing.
 
-The model is accessed locally through an Ollama chat endpoint in `backend/agents/gemma_client.py`. If the local model is unavailable, the system falls back to deterministic JSON so the demo still works and the interface remains responsive. That makes the submission practical on limited hardware while still showing the intended Gemma-backed agent flow.
+The model is accessed locally through an Ollama chat endpoint in `backend/agents/gemma_client.py`. If the local model is unavailable, the system falls back to deterministic JSON so the demo still works and the interface remains responsive. That makes the submission practical on limited hardware while still showing the intended grounded agent flow.
 
 ### Why This Design
 
@@ -78,9 +78,9 @@ Another challenge was maintaining stability when local inference is unavailable.
 
 Finally, I had to keep the design understandable. The interface needed to feel like an operations console, not a generic chat app. That meant emphasizing telemetry, incident state, and mitigation rather than free-form conversation.
 
-### What Makes This a Good Gemma 4 Project
+### What Makes This a Good Fit for the Hackathon
 
-NetGuardian uses Gemma 4 where it adds the most value: reasoning over grounded evidence and generating human-readable operational guidance. The model is not replacing the detector or simulation engine; it is helping explain and coordinate the response. That is a better fit for a real resilience system and a better fit for a hackathon demo that needs both technical depth and clear storytelling.
+NetGuardian uses a local language model where it adds the most value: reasoning over grounded evidence and generating human-readable operational guidance. The model is not replacing the detector or simulation engine; it is helping explain and coordinate the response. That is a better fit for a real resilience system and a better fit for a hackathon demo that needs both technical depth and clear storytelling.
 
 ### Impact
 
@@ -108,6 +108,6 @@ That sequence tells the whole story without needing a long explanation.
 
 ### Closing
 
-NetGuardian demonstrates how Gemma 4 can be used as part of a real operational workflow rather than just as a text generator. It combines local inference, anomaly detection, simulation, and structured explanation into a single incident response experience.
+NetGuardian demonstrates how a local language model can be used as part of a real operational workflow rather than just as a text generator. It combines local inference, anomaly detection, simulation, and structured explanation into a single incident response experience.
 
 The goal is not to make a flashy chatbot. The goal is to help operators understand what is happening, why it is happening, and what to do next when the network is under stress.

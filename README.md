@@ -2,7 +2,7 @@
 
 > **"Resilience at the edge, even when the cloud is dark."**
 >
-> **Global Resilience & Infrastructure Safety** — A local-first, agentic incident response system built for **remote telecom networks, utility grids, and disaster-recovery zones.** The demo runs with **Gemma 4 through a local Ollama endpoint** and falls back to deterministic responses when the model is unavailable.
+> **Global Resilience & Infrastructure Safety** — A local-first, agentic incident response system built for **remote telecom networks, utility grids, and disaster-recovery zones.** The demo uses a **local Ollama-backed language model** for grounded reasoning and falls back to deterministic responses when the model is unavailable.
 
 NetGuardian is built to show a realistic edge-AI workflow: detect anomalies from live telemetry, simulate likely failure cascades, and generate an operator-facing briefing with grounded recommendations.
 
@@ -16,7 +16,7 @@ graph TD
     B --> C{Anomaly?}
     C -- Yes --> D[Event Buffer]
     
-    subgraph "Gemma 4 Agent Layer"
+    subgraph "Local Model Agent Layer"
         D --> D1[Temporal Memory]
         D1 --> E[Multi-Agent Pipeline]
         
@@ -59,7 +59,7 @@ The diagnosis agent is configured with tool definitions for `simulate_impact`, `
 
 ## 🧠 Multi-Agent Logic Engine
 
-| Agent | Role | Gemma 4 Specialization |
+| Agent | Role | Local Model Specialization |
 |-------|------|-------------------------|
 | 🩺 **Diagnosis** | Predictive Forensic | Root-cause hypotheses and validation against tool output. |
 | 🔧 **Recommendation** | Tactical Commander | Chooses the lowest-disruption mitigation path. |
@@ -68,7 +68,7 @@ The diagnosis agent is configured with tool definitions for `simulate_impact`, `
 ---
 
 ## 🛠️ Technology Stack (Special Technology Track)
-- **Model**: Gemma 4 (local Ollama-backed inference in the demo configuration).
+- **Model**: local Ollama-backed language model used for operator-facing reasoning.
 - **Provider**: **Ollama** — local `/api/chat` endpoint with deterministic fallback responses if the model is unavailable.
 - **Framework**: FastAPI backend + React/Vite dashboard.
 - **Core pipeline**: IsolationForest anomaly detection, synthetic telemetry generation, graph-based impact simulation, and agent-driven briefing output.
@@ -85,7 +85,7 @@ The diagnosis agent is configured with tool definitions for `simulate_impact`, `
 - Real-time telemetry replay from a generated or loaded dataset.
 - IsolationForest-based anomaly detection with feature attribution.
 - Graph-based failure propagation simulation for affected nodes.
-- Local model orchestration through Gemma 4-compatible prompts and tool definitions.
+- Local model orchestration through grounded prompts and tool definitions.
 - React dashboard for status, anomaly feed, charting, and agent briefing.
 
 ## Demo Notes
