@@ -31,6 +31,7 @@ export default function AIPanel({ incident, thinking }) {
   const recommendation = hasAgents.recommendation || {};
   const explanation = hasAgents.explanation || {};
   const simulation = incident?.simulation || {};
+  const experience = incident?.experience || null;
   const blackboard = incident?.blackboard || {};
   const causalChain = blackboard.causal_chain || [];
   const cycles = incident?.cycles_run || 0;
@@ -143,6 +144,16 @@ export default function AIPanel({ incident, thinking }) {
                       {feature}
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {experience && (
+              <div style={{ marginBottom: 14, padding: "10px 12px", background: "rgba(16,185,129,0.05)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)" }}>
+                <div style={{ fontSize: 9, color: "#10b981", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Matched Case</div>
+                <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{experience.name} ({experience.id})</div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                  Similarity {(experience.similarity * 100).toFixed(0)}% · {experience.remedy}
                 </div>
               </div>
             )}

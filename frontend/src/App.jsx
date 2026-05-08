@@ -4,6 +4,7 @@ import StatusBadge from "./components/StatusBadge";
 import MetricChart from "./components/MetricChart";
 import AnomalyFeed from "./components/AnomalyFeed";
 import AIPanel from "./components/AIPanel";
+import OperationsSummary from "./components/OperationsSummary";
 import {
   Activity, Play, Square, Zap, Wifi, Clock,
   BarChart2, AlertTriangle, Server
@@ -44,8 +45,40 @@ export default function App() {
   const [activeMetric, setActiveMetric] = useState("latency_ms");
   const [clock, setClock] = useState(new Date());
   const [injectLoading, setInjectLoading] = useState(false);
+  const [systemSummary, setSystemSummary] = useState(null);
+  const [recentIncidents, setRecentIncidents] = useState([]);
+  const [benchmark, setBenchmark] = useState(null);
+  const [benchmarkLoading, setBenchmarkLoading] = useState(false);
 
   const eventSourceRef = useRef(null);
+
+  const refreshOperationalData = useCallback(async () => {
+    try {
+      const [summaryRes, incidentsRes] = await Promise.all([
+        fetch(`${API}/api/system/summary`),
+        fetch(`${API}/api/incidents/recent?limit=5`),
+      ]);
+      const summaryJson = await summaryRes.json();
+      const incidentsJson = await incidentsRes.json();
+      setSystemSummary(summaryJson);
+      setRecentIncidents(Array.isArray(incidentsJson?.data) ? incidentsJson.data : []);
+    } catch (err) {
+      console.error("Refresh operational data failed:", err);
+    }
+  }, []);
+
+  const runBenchmark = useCallback(async () => {
+    setBenchmarkLoading(true);
+    try {
+      const res = await fetch(`${API}/api/evaluation/benchmark?refresh=true`);
+      const json = await res.json();
+      setBenchmark(json);
+    } catch (err) {
+      console.error("Benchmark failed:", err);
+    } finally {
+      setBenchmarkLoading(false);
+    }
+  }, []);
 
   // Clock
   useEffect(() => {
@@ -55,13 +88,28 @@ export default function App() {
 
   // Load history on mount
   useEffect(() => {
-    fetch(`${API}/api/metrics/history`)
-      .then(r => r.json())
-      .then(({ data: rows }) => {
-        setData(rows.slice(-MAX_DATA_POINTS));
+    const loadInitialData = async () => {
+      try {
+        const [historyRes, summaryRes, incidentsRes] = await Promise.all([
+          fetch(`${API}/api/metrics/history`),
+          fetch(`${API}/api/system/summary`),
+          fetch(`${API}/api/incidents/recent?limit=5`),
+        ]);
+
+        const historyJson = await historyRes.json();
+        const summaryJson = await summaryRes.json();
+        const incidentsJson = await incidentsRes.json();
+
+        setData(historyJson.data.slice(-MAX_DATA_POINTS));
+        setSystemSummary(summaryJson);
+        setRecentIncidents(Array.isArray(incidentsJson?.data) ? incidentsJson.data : []);
         setStatus("stable");
-      })
-      .catch(() => setStatus("stable"));
+      } catch {
+        setStatus("stable");
+      }
+    };
+
+    loadInitialData();
   }, []);
 
   // SSE stream
@@ -86,6 +134,10 @@ export default function App() {
           const next = [...prev, event];
           return next.length > MAX_ANOMALIES ? next.slice(-MAX_ANOMALIES) : next;
         });
+        setRecentIncidents(prev => {
+          const next = [event, ...prev];
+          return next.slice(0, 5);
+        });
 
         if (event.agents) {
           setLatestIncident(event);
@@ -93,6 +145,8 @@ export default function App() {
         } else {
           setThinking(true);
         }
+
+        refreshOperationalData().catch(() => {});
       } else {
         setStatus("stable");
       }
@@ -128,6 +182,8 @@ export default function App() {
       setAnomalies(prev => [...prev, event].slice(-MAX_ANOMALIES));
       setData(prev => [...prev, event].slice(-MAX_DATA_POINTS));
       setLatest(event);
+      setRecentIncidents(prev => [event, ...prev].slice(0, 5));
+      refreshOperationalData().catch(() => {});
     } catch (err) {
       console.error("Inject failed:", err);
     } finally {
@@ -216,6 +272,15 @@ export default function App() {
 
         {/* Right Column */}
         <div className="right-panel">
+          <OperationsSummary
+            summary={systemSummary}
+            recentIncidents={recentIncidents}
+            benchmark={benchmark}
+            benchmarkLoading={benchmarkLoading}
+            onRefresh={refreshOperationalData}
+            onRunBenchmark={runBenchmark}
+          />
+
           {/* Anomaly Feed */}
           <div className="feed-panel">
             <div className="panel-header">
