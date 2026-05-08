@@ -56,6 +56,9 @@ def run_diagnosis(anomaly_event: dict, context: str = "", pattern: str = "", exp
     Enforces a strict Reasoning Trace: Hypothesis → Evidence → Decision.
     """
     simulation_section = f"\nLIVE EVIDENCE GATHERED:\n{tool_output}" if tool_output else ""
+    experience_section = ""
+    if experience:
+        experience_section = f"\nGROUNDED CASE MATCH:\n{experience}"
 
     prompt = f"""SYSTEM: You are the Lead Network Forensic Analyst.
 Your goal is to explain exactly 'Why' a failure is occurring. 
@@ -65,6 +68,7 @@ ANALYSIS DEPTH: {analysis_depth}
 SITUATION: {anomaly_event}
 CONTEXT: {context}
 {simulation_section}
+{experience_section}
 
 STRICT OUTPUT CONSTRAINTS:
 1. Always follow the 'Reasoning Trace' structure:

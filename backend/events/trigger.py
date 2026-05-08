@@ -1,6 +1,7 @@
 import logging
 import json
 from backend.agents.tools import TOOLS, TOOL_REGISTRY, simulate_impact, normalize_args, sim
+from backend.agents.knowledge_base import retrieve_experience
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,8 @@ class Boardroom:
             "simulations": [],
             "causal_chain": [],
             "decisions": [],
-            "safety_status": "PENDING"
+            "safety_status": "PENDING",
+            "experience": None,
         }
 
     def add_simulation(self, node, result):
@@ -57,10 +59,16 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
 
     board = Boardroom(anomaly_event)
     node_id = anomaly_event.get("node_id", "Router-14")
+    event_description = " ".join(
+        f"{key}:{value}" for key, value in anomaly_event.items()
+        if key in {"latency_ms", "throughput_mbps", "packet_loss_pct", "jitter_ms", "connections", "primary_metric", "severity"}
+    )
+    experience = retrieve_experience(event_description or json.dumps(anomaly_event, default=str))
+    board.blackboard["experience"] = experience
     
     # --- RECURSIVE REASONING (3 Refinement Cycles) ---
     max_cycles = 3
-    context_stream = f"Initial Anomaly: {anomaly_event['attribution']}"
+    context_stream = f"Initial Anomaly: {anomaly_event.get('attribution', [])}\nExperience Match: {experience.get('id')} - {experience.get('name')}"
     final_diagnosis = None
 
     for i in range(max_cycles):
@@ -108,6 +116,7 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
     diagnosis = run_diagnosis(
         anomaly_event,
         context=context_stream,
+        experience=experience,
         tool_output=board.blackboard["simulations"][-1]["result"],
         analysis_depth="FINAL"
     )
@@ -179,6 +188,7 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
         "diagnosis": final_diagnosis,
         "action": action_res,
         "simulation": simulation_summary,
+        "experience": experience,
         "agents": {
             "diagnosis": diagnosis,
             "recommendation": recommendation,

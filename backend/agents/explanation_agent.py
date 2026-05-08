@@ -9,7 +9,10 @@ def run_explanation(anomaly_event: dict, diagnosis: dict, recommendation: dict, 
     if boardroom_context:
         evidence = boardroom_context.get("evidence", [])
         sims = boardroom_context.get("simulations", [])
+        experience = boardroom_context.get("experience")
         evidence_str = f"GROUNDED EVIDENCE: {evidence}\nSIMULATIONS RUN: {sims}"
+        if experience:
+            evidence_str += f"\nMATCHED CASE: {experience}"
 
     prompt = f"""SYSTEM: You are the Crisis Communicator for a High-Security Infrastructure NOC.
 Your role is to explain the system's reasoning process to human operators.
