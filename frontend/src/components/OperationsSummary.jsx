@@ -55,6 +55,7 @@ export default function OperationsSummary({
   benchmarkLoading,
   onRefresh,
   onRunBenchmark,
+  onDownloadReport,
 }) {
   const aiMetrics = benchmark?.results?.net_guardian_ai;
   const baseMetrics = benchmark?.results?.adaptive_ma_baseline;
@@ -69,6 +70,9 @@ export default function OperationsSummary({
         <div className="panel-actions">
           <button className="btn btn-ghost" onClick={onRefresh}>
             <RefreshCcw size={12} /> Refresh
+          </button>
+          <button className="btn btn-ghost" onClick={onDownloadReport}>
+            <Activity size={12} /> Report
           </button>
           <button className="btn btn-primary" onClick={onRunBenchmark} disabled={benchmarkLoading}>
             <BarChart3 size={12} /> {benchmarkLoading ? "Running…" : "Benchmark"}

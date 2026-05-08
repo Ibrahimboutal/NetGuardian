@@ -21,18 +21,54 @@ from datetime import datetime, timezone
 
 # --- Shared state ---
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "ML-MATT-CompetitionQT2021_train.csv"
+INCIDENT_LOG_PATH = Path(__file__).parent.parent.parent / "data" / "incident_log.jsonl"
 _df = None
 _detector = AnomalyDetector()
 _stream_active = False
 _train_lock = threading.Lock()
 _incident_log = []
 _benchmark_cache = None
+_incident_log_loaded = False
+
+
+def _load_incident_log():
+    global _incident_log_loaded
+    if _incident_log_loaded:
+        return
+
+    if INCIDENT_LOG_PATH.exists():
+        try:
+            with INCIDENT_LOG_PATH.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        _incident_log.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+                del _incident_log[:-100]
+        except OSError:
+            logger.warning("Unable to load incident log from disk.")
+
+    _incident_log_loaded = True
+
+
+def _append_incident_to_disk(event: dict):
+    try:
+        INCIDENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with INCIDENT_LOG_PATH.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, default=str) + "\n")
+    except OSError:
+        logger.warning("Unable to persist incident log entry.")
 
 
 def _record_incident(event: dict):
+    _load_incident_log()
     if event and event.get("anomaly"):
         _incident_log.append(event)
         del _incident_log[:-100]
+        _append_incident_to_disk(event)
 
 
 def _build_summary() -> dict:
@@ -54,6 +90,7 @@ def _build_summary() -> dict:
 
 def _ensure_trained():
     global _df, _detector
+    _load_incident_log()
     if _df is not None:
         return
         
@@ -101,6 +138,7 @@ def metrics_history():
 @router.get("/api/incidents/recent")
 def recent_incidents(limit: int = 20):
     """Return the most recent incident payloads for operator review."""
+    _load_incident_log()
     limit = max(1, min(limit, 100))
     return {"data": _incident_log[-limit:]}
 
@@ -113,6 +151,19 @@ def system_summary():
     summary["data_points"] = int(len(_df)) if _df is not None else 0
     summary["columns"] = list(_df.columns) if _df is not None else []
     return summary
+
+
+@router.get("/api/incidents/export")
+def export_incidents():
+    """Return a single JSON report that can be downloaded by the frontend."""
+    _load_incident_log()
+    _ensure_trained()
+    return {
+        "summary": _build_summary(),
+        "recent_incidents": _incident_log[-100:],
+        "benchmark": _benchmark_cache,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/api/evaluation/benchmark")

@@ -80,6 +80,24 @@ export default function App() {
     }
   }, []);
 
+  const downloadReport = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/incidents/export`);
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `netguardian-report-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download report failed:", err);
+    }
+  }, []);
+
   // Clock
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -279,6 +297,7 @@ export default function App() {
             benchmarkLoading={benchmarkLoading}
             onRefresh={refreshOperationalData}
             onRunBenchmark={runBenchmark}
+            onDownloadReport={downloadReport}
           />
 
           {/* Anomaly Feed */}
