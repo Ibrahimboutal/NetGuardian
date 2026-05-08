@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Zap, Activity, Info, CheckCircle, TrendingUp, History, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
+import { Brain, ShieldCheck, Activity, Info, CheckCircle, TrendingUp, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },
@@ -23,17 +23,20 @@ function ThinkingIndicator({ label }) {
 export default function AIPanel({ incident, thinking }) {
   const [activeTab, setActiveTab] = useState("explanation");
 
-  const hasAgents = incident?.agents;
-  const isActive = hasAgents || thinking;
+  const hasAgents = incident?.agents || {};
+  const hasIncident = Boolean(incident);
+  const isActive = hasIncident || thinking;
 
-  const diagnosis = hasAgents?.diagnosis || {};
-  const recommendation = hasAgents?.recommendation || {};
-  const explanation = hasAgents?.explanation || {};
+  const diagnosis = hasAgents.diagnosis || {};
+  const recommendation = hasAgents.recommendation || {};
+  const explanation = hasAgents.explanation || {};
   const simulation = incident?.simulation || {};
   const blackboard = incident?.blackboard || {};
   const causalChain = blackboard.causal_chain || [];
   const cycles = incident?.cycles_run || 0;
   const safety = blackboard.safety_status || "PASSED";
+  const primaryMetric = incident?.primary_metric || "latency_ms";
+  const tacticalPriority = diagnosis.predicted_next_failure || incident?.diagnosis || "Stabilizing Infrastructure";
 
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
@@ -91,7 +94,7 @@ export default function AIPanel({ incident, thinking }) {
           </div>
         )}
 
-        {thinking && !hasAgents && (
+        {thinking && !hasIncident && (
           <div>
             <ThinkingIndicator label="🧠 Cosine Similarity RAG grounding (Explainable)…" />
             <ThinkingIndicator label="🩺 Probabilistic Hypothesis: Rolling Feature Analysis…" />
@@ -100,7 +103,7 @@ export default function AIPanel({ incident, thinking }) {
           </div>
         )}
 
-        {hasAgents && activeTab === "explanation" && (
+        {hasIncident && activeTab === "explanation" && (
           <div>
             {/* System Alert Banner */}
             <div style={{
@@ -119,53 +122,36 @@ export default function AIPanel({ incident, thinking }) {
                 )}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
-                Tactical Priority: {diagnosis || "Stabilizing Infrastructure"}
+                Tactical Priority: {tacticalPriority}
               </div>
             </div>
 
-            {/* Temporal Intelligence (Enhanced) */}
-            {pattern.pattern && (
-               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(245,158,11,0.05)", borderRadius: 6, border: "1px solid rgba(245,158,11,0.2)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b" }}>TEMPORAL FEATURE INTELLIGENCE</div>
-                    <div style={{ fontSize: 9, color: "#f59e0b" }}>CONFIDENCE: {(pattern.confidence * 100).toFixed(0)}%</div>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{pattern.pattern}</div>
-               </div>
-            )}
+            <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, border: "1px solid rgba(6,182,212,0.2)" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4", marginBottom: 4, textTransform: "uppercase" }}>PRIMARY SIGNAL</div>
+              <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{primaryMetric}</div>
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                Score: {(incident?.anomaly_score ?? incident?.score ?? 0).toFixed(4)} · Attributed features: {(incident?.attribution || []).join(", ") || "none"}
+              </div>
+            </div>
 
-            {/* Tactical Execution Moment */}
-            {mitigations.length > 0 && (
-               <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(16,185,129,0.05)", borderRadius: 6, borderLeft: "3px solid #10b981" }}>
-               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, fontWeight: 700, color: "#10b981", marginBottom: 4 }}>
-                  <CheckCircle size={10} /> AUTONOMOUS MITIGATION SUCCESSFUL
-               </div>
-               <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{mitigations[0].intervention}</div>
-               <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>Target: {mitigations[0].target}</div>
-             </div>
-            )}
-
-            {/* Grounding (Cosine Similarity) */}
-            {experience.id && (
-              <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, border: "1px solid rgba(6,182,212,0.2)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#06b6d4" }}>GROUNDED CASE: {experience.id}</div>
-                    <div style={{ fontSize: 8, color: "#06b6d4", background: "rgba(6,182,212,0.1)", padding: "1px 4px", borderRadius: 2 }}>{ (experience.similarity * 100).toFixed(0) }% Cosine Sim.</div>
-                </div>
-                <div style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 600 }}>{experience.name}</div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                    {experience.why_matched?.map((tag, i) => (
-                       <span key={i} style={{ fontSize: 8, padding: "1px 5px", background: "rgba(6,182,212,0.1)", color: "#06b6d4", borderRadius: 10 }}>{tag}</span>
-                    ))}
+            {incident?.attribution?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" }}>Top Feature Attribution</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {incident.attribution.map((feature) => (
+                    <span key={feature} style={{ fontSize: 8, padding: "2px 6px", background: "rgba(59,130,246,0.12)", color: "#3b82f6", borderRadius: 999 }}>
+                      {feature}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
-            <p className="ai-text">{explanation.summary}</p>
+            <p className="ai-text">{explanation.summary || "The system detected an anomaly, simulated its spread, and produced a grounded operator briefing."}</p>
           </div>
         )}
 
-        {hasAgents && activeTab === "diagnosis" && (
+        {hasIncident && activeTab === "diagnosis" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             
             {/* Probabilistic Hypotheses */}
@@ -249,7 +235,7 @@ export default function AIPanel({ incident, thinking }) {
           </div>
         )}
 
-        {hasAgents && activeTab === "recommendation" && (
+        {hasIncident && activeTab === "recommendation" && (
           <div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 9, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>COMMAND DECISION</div>
@@ -257,10 +243,16 @@ export default function AIPanel({ incident, thinking }) {
             </div>
 
             {/* Trade-off Analysis Block */}
-            {recommendation.trade_off_analysis && (
+            {recommendation.strategic_justification && (
                <div style={{ marginBottom: 14, padding: "8px 10px", background: "rgba(59,130,246,0.05)", borderRadius: 6, border: "1px solid rgba(59,130,246,0.2)" }}>
                   <div style={{ fontSize: 9, fontWeight: 700, color: "#3b82f6", marginBottom: 4, textTransform: "uppercase" }}>Constraint Trade-off Analysis</div>
-                  <div style={{ fontSize: 11, color: "#f1f5f9", lineHeight: 1.4 }}>{recommendation.trade_off_analysis}</div>
+                  <div style={{ fontSize: 11, color: "#f1f5f9", lineHeight: 1.4 }}>{recommendation.strategic_justification}</div>
+               </div>
+            )}
+
+            {recommendation.trade_off && (
+               <div style={{ marginBottom: 14, fontSize: 11, color: "#94a3b8" }}>
+                 Trade-off: {recommendation.trade_off}
                </div>
             )}
 
@@ -290,7 +282,7 @@ export default function AIPanel({ incident, thinking }) {
         )}
 
         {/* System Efficacy Metrics (The "Winner" Reveal) */}
-        {hasAgents && (
+        {hasIncident && (
            <div style={{ marginTop: 20, paddingTop: 12, borderTop: "1px solid #1e2d4a" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "#64748b", fontWeight: 600, marginBottom: 8, textTransform: "uppercase" }}>
                 <BarChart3 size={10} color="#10b981" /> System Efficacy Benchmark

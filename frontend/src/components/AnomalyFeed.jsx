@@ -22,7 +22,7 @@ function FeedItem({ event }) {
           {metricLabels[event.primary_metric] || event.primary_metric || "Network"} Anomaly
         </div>
         <div className="feed-values">
-          Latency {event.latency_ms}ms · Loss {event.packet_loss_pct}% · Score {event.anomaly_score?.toFixed(3)}
+          Latency {event.latency_ms}ms · Loss {event.packet_loss_pct}% · Score {(event.anomaly_score ?? event.score ?? 0).toFixed(3)}
         </div>
         <div className="feed-time">{ts}</div>
       </div>

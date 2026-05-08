@@ -1,12 +1,14 @@
-# 🛡️ NetGuardian — Edge AI for Disaster-Prone Infrastructure
+# 🛡️ NetGuardian — Local-First Edge AI for Infrastructure Anomaly Response
 
 > **"Resilience at the edge, even when the cloud is dark."**
 >
-> **Global Resilience & Infrastructure Safety** — A 100% offline, agentic defense system engineered specifically for **remote telecom networks, utility grids, and disaster-recovery zones.** Powered by **Gemma 4 Native Intelligence.**
+> **Global Resilience & Infrastructure Safety** — A local-first, agentic incident response system built for **remote telecom networks, utility grids, and disaster-recovery zones.** The demo runs with **Gemma 4 through a local Ollama endpoint** and falls back to deterministic responses when the model is unavailable.
+
+NetGuardian is built to show a realistic edge-AI workflow: detect anomalies from live telemetry, simulate likely failure cascades, and generate an operator-facing briefing with grounded recommendations.
 
 ---
 
-## 🏗️ Judge-Winning Architecture
+## 🏗️ Verified Architecture
 
 ```mermaid
 graph TD
@@ -14,23 +16,23 @@ graph TD
     B --> C{Anomaly?}
     C -- Yes --> D[Event Buffer]
     
-    subgraph "Gemma 4 Intelligence Layer"
+    subgraph "Gemma 4 Agent Layer"
         D --> D1[Temporal Memory]
-        D1 --> E[Gemma 4 Multi-Agent Pipeline]
+        D1 --> E[Multi-Agent Pipeline]
         
         subgraph "Native Reasoning & Tool Use"
-            E1[🩺 Reasoning Agent] -- Reasoning Trace --> E2[🔧 Command Agent]
-            E2 -- Native Tool Call --> T[Tooling Layer]
+            E1[🩺 Diagnosis Agent] -- Reasoning Trace --> E2[🔧 Recommendation Agent]
+            E2 -- Tool Call / Mitigation --> T[Tooling Layer]
             T -- Simulation/Telemetry --> E1
         end
         
         subgraph "Agentic Grounding (RAG)"
-            K[Experience Base] -- Cosine Similarity --> E1
+            K[Telemetry History] -- Feature Attribution --> E1
         end
     end
     
-    E2 --> F[Autonomous Mitigation]
-    E2 --> G[Crisis Briefing]
+    E2 --> F[Mitigation Decision]
+    E1 --> G[Crisis Briefing]
     
     style B fill:#1e2d4a,stroke:#3b82f6,color:#fff
     style D fill:#1e2d4a,stroke:#f59e0b,color:#fff
@@ -42,20 +44,16 @@ graph TD
 
 ---
 
-## 🚀 Key Innovations for Gemma 4
+## 🚀 What the Demo Proves
 
-### 1. Global Resilience: Disaster-Grade Edge Intelligence
-NetGuardian addresses the most critical gap in modern AI: **Cloud Dependency**. In disaster scenarios where backhaul connectivity is severed, NetGuardian provides frontier-grade intelligence locally. It turns a standard industrial gateway into an autonomous incident responder.
+### 1. Local-First Resilience
+The system is designed to run without a cloud round trip. In the demo, telemetry ingestion, anomaly scoring, simulation, and briefing generation happen in one local flow so the judges can see the full path from detection to action.
 
-### 2. Safety & Trust: The Explainable Reasoning Trace
-We leverage Gemma 4's superior reasoning to generate a **structured Reasoning Trace**. Instead of "black box" decisions, NetGuardian explains its logic:
-*   *Step 1: Evidence gathering via `get_node_status`.*
-*   *Step 2: Probabilistic modeling of cascade paths.*
-*   *Step 3: Verification via `simulate_impact`.*
-This transparency is critical for building trust with human operators in high-stakes infrastructure environments.
+### 2. Explainable Incident Handling
+The backend returns a structured incident object that includes the anomaly score, feature attribution, simulated cascade summary, and operator briefing. That makes the output easy to verify in both the UI and the writeup.
 
-### 3. Technical Depth: Native Function Calling via Ollama
-Unlike basic prompt-based JSON extraction, NetGuardian utilizes **Gemma 4's Native Function Calling** capabilities. By interfacing with the **Ollama Chat API**, our agents dynamically call tools like `simulate_impact()` as formal function objects. This ensures deterministic grounding and architectural robustness.
+### 3. Agentic Tool Use
+The diagnosis agent is configured with tool definitions for `simulate_impact`, `get_node_status`, and `analyze_topology`. The recommendation and explanation agents then turn the grounded result into mitigation guidance and a human-readable briefing.
 
 ---
 
@@ -63,21 +61,33 @@ Unlike basic prompt-based JSON extraction, NetGuardian utilizes **Gemma 4's Nati
 
 | Agent | Role | Gemma 4 Specialization |
 |-------|------|-------------------------|
-| 🩺 **Reasoning** | Predictive Forensic | Probabilistic hypothesis generation & cascade prediction. |
-| 🔧 **Command** | Tactical Commander | Native tool invocation & trade-off analysis. |
-| 📢 **Communicator** | Crisis Briefing | Multi-modal ready briefing generation (Safety & Trust). |
+| 🩺 **Diagnosis** | Predictive Forensic | Root-cause hypotheses and validation against tool output. |
+| 🔧 **Recommendation** | Tactical Commander | Chooses the lowest-disruption mitigation path. |
+| 📢 **Explanation** | Crisis Briefing | Summarizes what happened, why it matters, and what was done. |
 
 ---
 
 ## 🛠️ Technology Stack (Special Technology Track)
-- **Model**: Gemma 4 (9B/27B) — Utilized for its native tool-calling and improved reasoning density.
-- **Provider**: **Ollama** — 100% local inference via `/api/chat` for maximum privacy and resilience.
-- **Framework**: FastAPI (Backend) + React/Vite (Premium Dashboard).
-- **Inference Strategy**: Quantized 4-bit/8-bit execution for sub-3s reasoning loops on edge hardware.
+- **Model**: Gemma 4 (local Ollama-backed inference in the demo configuration).
+- **Provider**: **Ollama** — local `/api/chat` endpoint with deterministic fallback responses if the model is unavailable.
+- **Framework**: FastAPI backend + React/Vite dashboard.
+- **Core pipeline**: IsolationForest anomaly detection, synthetic telemetry generation, graph-based impact simulation, and agent-driven briefing output.
+- **Demo focus**: fast, readable incident triage that judges can verify end to end.
 
 ---
 
-## 🏆 Why NetGuardian Wins
-1. **Impact**: Solves the "Offline AI" problem for critical infrastructure (Global Resilience Track).
-2. **Technical Mastery**: Implements Native Function Calling and Agentic Retrieval (Technical Depth Track).
-3. **Storytelling**: A "WOW" factor UI that visualizes AI thought processes in real-time.
+## 🏆 Why NetGuardian Is Competitive
+1. **Impact**: Addresses the resilience problem for remote infrastructure where cloud access is unreliable.
+2. **Technical depth**: Combines anomaly detection, simulation, and multi-agent reasoning into one verifiable flow.
+3. **Judging clarity**: The UI surfaces the anomaly, the simulated impact, and the generated operator response in one place.
+
+## ✅ What’s Actually Implemented
+- Real-time telemetry replay from a generated or loaded dataset.
+- IsolationForest-based anomaly detection with feature attribution.
+- Graph-based failure propagation simulation for affected nodes.
+- Local model orchestration through Gemma 4-compatible prompts and tool definitions.
+- React dashboard for status, anomaly feed, charting, and agent briefing.
+
+## Demo Notes
+- The repo is intentionally demo-friendly: if Ollama is unavailable, the agent layer falls back to deterministic JSON so the interface remains usable.
+- For the hackathon writeup, focus on the end-to-end flow, the agent contract, and the grounded simulation output rather than claiming full production autonomy.

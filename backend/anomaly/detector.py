@@ -139,14 +139,17 @@ class AnomalyDetector:
         # Predict
         node_id = data.get("node_id", "Router-14")
         is_anomaly, score, severity, attribution = self.predict(features, node_id=node_id)
+        primary_metric = attribution[0] if attribution else "latency_ms"
 
         # Build payload
         return {
             "timestamp": str(data.get("timestamp", pd.Timestamp.now())),
             "anomaly": is_anomaly,
             "score": round(score, 4),
+            "anomaly_score": round(score, 4),
             "severity": severity,
             "attribution": attribution,
+            "primary_metric": primary_metric,
             "metrics": clean_data,
             "node_id": node_id
         }
