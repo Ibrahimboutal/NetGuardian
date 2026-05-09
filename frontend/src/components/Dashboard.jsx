@@ -10,7 +10,8 @@ const AIPanel = lazy(() => import("./AIPanel"));
 const OperationsSummary = lazy(() => import("./OperationsSummary"));
 const MetricChart = lazy(() => import("./MetricChart"));
 
-const API = "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_TOKEN = import.meta.env.VITE_API_TOKEN || "";
 const MAX_DATA_POINTS = 120;
 const MAX_ANOMALIES = 50;
 
@@ -52,6 +53,8 @@ export default function Dashboard() {
   const [benchmark, setBenchmark] = useState(null);
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
   const [agentProgress, setAgentProgress] = useState([]);
+  const [errorMsg, setErrorMsg] = useState("");
+  const reconnectTimerRef = useRef(null);
 
   const eventSourceRef = useRef(null);
 
@@ -71,8 +74,10 @@ export default function Dashboard() {
       setRecentIncidents(Array.isArray(incidentsJson?.data) ? incidentsJson.data : []);
       setIncidentInsights(insightsJson);
       setIncidentForecast(forecastJson);
+      setErrorMsg("");
     } catch (err) {
       console.error("Refresh operational data failed:", err);
+      setErrorMsg("Failed to refresh operational data");
     }
   };
 
@@ -82,8 +87,10 @@ export default function Dashboard() {
       const res = await fetch(`${API}/api/evaluation/benchmark?refresh=true`);
       const json = await res.json();
       setBenchmark(json);
+      setErrorMsg("");
     } catch (err) {
       console.error("Benchmark failed:", err);
+      setErrorMsg("Benchmark request failed");
     } finally {
       setBenchmarkLoading(false);
     }
@@ -91,7 +98,8 @@ export default function Dashboard() {
 
   const downloadReport = async () => {
     try {
-      const res = await fetch(`${API}/api/incidents/export`);
+      const headers = API_TOKEN ? { "X-API-Key": API_TOKEN } : {};
+      const res = await fetch(`${API}/api/incidents/export`, { headers });
       const json = await res.json();
       const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -102,14 +110,19 @@ export default function Dashboard() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setErrorMsg("");
     } catch (err) {
       console.error("Download report failed:", err);
+      setErrorMsg("Report export failed (API key may be required)");
     }
   };
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -135,8 +148,10 @@ export default function Dashboard() {
         setIncidentInsights(insightsJson);
         setIncidentForecast(forecastJson);
         setStatus("stable");
+        setErrorMsg("");
       } catch {
-        setStatus("stable");
+        setStatus("connecting");
+        setErrorMsg("Initial load failed. Check backend availability.");
       }
     };
 
@@ -181,6 +196,7 @@ export default function Dashboard() {
       } else {
         setStatus("stable");
       }
+      setErrorMsg("");
     });
 
     es.addEventListener("agent_status", e => {
@@ -198,7 +214,12 @@ export default function Dashboard() {
       es.close();
       eventSourceRef.current = null;
       setStreaming(false);
-      setStatus("stable");
+      setStatus("connecting");
+      setErrorMsg("Stream disconnected. Retrying in 3s…");
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = setTimeout(() => {
+        if (!eventSourceRef.current) startStream();
+      }, 3000);
     };
   };
 
@@ -212,6 +233,7 @@ export default function Dashboard() {
     setStatus("stable");
     setThinking(false);
     setAgentProgress([]);
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
   };
 
   const injectAnomaly = async () => {
@@ -229,6 +251,7 @@ export default function Dashboard() {
       refreshOperationalData().catch(() => {});
     } catch (err) {
       console.error("Inject failed:", err);
+      setErrorMsg("Anomaly injection failed");
     } finally {
       setThinking(false);
       setAgentProgress([]);
@@ -301,6 +324,11 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+          {errorMsg && (
+            <div style={{ marginBottom: 10, color: "#fca5a5", fontSize: 12 }}>
+              {errorMsg}
+            </div>
+          )}
 
           <Suspense fallback={<div style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading chart…</div>}>
             <MetricChart data={data} activeMetric={activeMetric} onMetricChange={setActiveMetric} />

@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 import logging
 import threading
+from pathlib import Path
+import joblib
 from .preprocess import engine
 from sklearn.ensemble import IsolationForest
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +18,8 @@ class AnomalyDetector:
         self.is_trained = False
         self.lock = threading.Lock()
         self.steps_since_train = 0
+        self.model_version = "v1"
+        self.model_path = Path(settings.model_dir) / f"isolation_forest_{self.model_version}.joblib"
         self.feature_names = [
             "latency_ms", "throughput_mbps", "packet_loss_pct", "jitter_ms", "connections",
             "latency_avg", "throughput_avg", "packet_loss_avg", "jitter_avg", "connections_avg",
@@ -22,6 +27,7 @@ class AnomalyDetector:
             "latency_delta", "throughput_delta", "packet_loss_delta", "jitter_delta", "connections_delta",
             "latency_trend", "throughput_trend", "packet_loss_trend", "jitter_trend", "connections_trend"
         ]
+        self._load_model_if_exists()
 
     def fit(self, df: pd.DataFrame):
         logger.info("🏭 Initializing Sentinel via batch training...")
@@ -65,8 +71,32 @@ class AnomalyDetector:
                 self.steps_since_train += 1
 
     def save_model(self):
-        # Placeholder for model persistence
-        logger.info("💾 Model state captured.")
+        try:
+            payload = {
+                "model": self.model,
+                "training_data": self.training_data,
+                "is_trained": self.is_trained,
+                "feature_names": self.feature_names,
+                "model_version": self.model_version,
+            }
+            joblib.dump(payload, self.model_path)
+            logger.info("💾 Model state persisted at %s", self.model_path)
+        except Exception as exc:
+            logger.warning("Model persistence failed: %s", exc)
+
+    def _load_model_if_exists(self):
+        if not self.model_path.exists():
+            return
+        try:
+            payload = joblib.load(self.model_path)
+            model = payload.get("model")
+            if model is not None:
+                self.model = model
+            self.training_data = payload.get("training_data", [])
+            self.is_trained = bool(payload.get("is_trained", False))
+            logger.info("📦 Loaded persisted model from %s", self.model_path)
+        except Exception as exc:
+            logger.warning("Failed to load persisted model: %s", exc)
 
     def predict(self, features: np.ndarray, node_id: str = "Unknown", train: bool = True) -> tuple:
         from backend.agents.tools import sim  # avoid circular import

@@ -21,16 +21,16 @@ class NetGuardianEvaluator:
             "net_guardian_ai": {"tp": 0, "fp": 0, "fn": 0, "tn": 0, "detection_times": []}
         }
 
-    def run_benchmark(self, num_iterations=200):
+    def run_benchmark(self, num_iterations=200, seed: int = 42):
         print(f"Starting Honest Benchmark ({num_iterations} iterations)...")
         
         # 1. Warm up with normal industrial data
-        warmup_df = self.factory.generate(anomaly_rate=0.0)
+        warmup_df = self.factory.generate(anomaly_rate=0.0, seed=seed)
         for _, row in warmup_df.head(20).iterrows():
             self.detector.train_step(self.engine.process(row))
 
         # 2. Run the actual benchmark
-        test_df = self.factory.generate(anomaly_rate=0.2)
+        test_df = self.factory.generate(anomaly_rate=0.2, seed=seed + 1)
         ma_window = []
         
         # Tracking for timing
@@ -110,7 +110,7 @@ class NetGuardianEvaluator:
 
 if __name__ == "__main__":
     evaluator = NetGuardianEvaluator()
-    results = evaluator.run_benchmark()
+    results = evaluator.run_benchmark(seed=42)
     print("\nHonest Evaluation Results (No Hardcoded Timings):")
     for method, m in results.items():
         print(f"--- {method.upper()} ---")
