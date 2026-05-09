@@ -73,7 +73,7 @@ class NetGuardianEvaluator:
                     self.results["adaptive_ma_baseline"]["tn"] += 1
 
             # --- NetGuardian AI: Temporal Isolation Forest ---
-            is_ai_anomaly, score, severity, attribution = self.detector.predict(features)
+            is_ai_anomaly, score, severity, attribution = self.detector.predict(features, train=False)
             
             if is_real_anomaly:
                 if is_ai_anomaly:

@@ -52,6 +52,7 @@ export default function App() {
   const [recentIncidents, setRecentIncidents] = useState([]);
   const [benchmark, setBenchmark] = useState(null);
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
+  const [agentProgress, setAgentProgress] = useState([]);
 
   const eventSourceRef = useRef(null);
 
@@ -179,10 +180,22 @@ export default function App() {
           setThinking(true);
         }
 
+        setAgentProgress([]);
         refreshOperationalData().catch(() => {});
       } else {
         setStatus("stable");
       }
+    });
+
+    es.addEventListener("agent_status", e => {
+      const payload = JSON.parse(e.data);
+      if (payload?.message) {
+        setAgentProgress(prev => {
+          const next = [...prev, payload.message];
+          return next.length > 4 ? next.slice(-4) : next;
+        });
+      }
+      setThinking(true);
     });
 
     es.onerror = () => {
@@ -202,6 +215,7 @@ export default function App() {
     setStreaming(false);
     setStatus("stable");
     setThinking(false);
+    setAgentProgress([]);
   }, []);
 
   const injectAnomaly = useCallback(async () => {
@@ -221,6 +235,7 @@ export default function App() {
       console.error("Inject failed:", err);
     } finally {
       setThinking(false);
+      setAgentProgress([]);
       setInjectLoading(false);
     }
   }, []);
@@ -337,7 +352,7 @@ export default function App() {
 
           {/* AI Panel */}
           <Suspense fallback={<div className="ai-panel" style={{ minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading reasoning panel…</div>}>
-            <AIPanel incident={latestIncident} thinking={thinking} />
+            <AIPanel incident={latestIncident} thinking={thinking} progressMessages={agentProgress} />
           </Suspense>
         </div>
       </main>

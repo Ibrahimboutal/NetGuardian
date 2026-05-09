@@ -431,7 +431,8 @@ async def stream_events(speed: float = 1.0):
                 payload = json.dumps(event)
                 yield {"event": "metric", "data": payload}
 
-                await asyncio.sleep(0.5 * speed)
+                delay = 0.5 / max(speed, 0.1)
+                await asyncio.sleep(delay)
         finally:
             _stream_active = False
 

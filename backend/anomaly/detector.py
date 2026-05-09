@@ -68,11 +68,12 @@ class AnomalyDetector:
         # Placeholder for model persistence
         logger.info("💾 Model state captured.")
 
-    def predict(self, features: np.ndarray, node_id: str = "Unknown") -> tuple:
+    def predict(self, features: np.ndarray, node_id: str = "Unknown", train: bool = True) -> tuple:
         from backend.agents.tools import sim  # avoid circular import
 
         if not self.is_trained:
-            self.train_step(features)
+            if train:
+                self.train_step(features)
             return False, 0.0, "normal", []
 
         X = features.reshape(1, -1)
@@ -116,7 +117,8 @@ class AnomalyDetector:
             else:
                 severity = "medium"
 
-        self.train_step(features)
+        if train:
+            self.train_step(features)
 
         return is_anomaly, abs(score), severity, attribution
 

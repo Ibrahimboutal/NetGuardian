@@ -20,7 +20,7 @@ function ThinkingIndicator({ label }) {
   );
 }
 
-export default function AIPanel({ incident, thinking }) {
+export default function AIPanel({ incident, thinking, progressMessages = [] }) {
   const [activeTab, setActiveTab] = useState("explanation");
 
   const hasAgents = incident?.agents || {};
@@ -101,6 +101,19 @@ export default function AIPanel({ incident, thinking }) {
             <ThinkingIndicator label="🩺 Probabilistic Hypothesis: Rolling Feature Analysis…" />
             <ThinkingIndicator label="🔬 Failure Propagation: Graph-based Simulation…" />
             <ThinkingIndicator label="🔄 SECOND_PASS: Conditional Deep Refinement (if confidence < 0.6)…" />
+          </div>
+        )}
+
+        {progressMessages.length > 0 && (
+          <div style={{ marginBottom: 12, padding: "8px 10px", background: "rgba(6,182,212,0.05)", borderRadius: 6, border: "1px solid rgba(6,182,212,0.18)" }}>
+            <div style={{ fontSize: 9, color: "#06b6d4", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>Live Agent Progress</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {progressMessages.map((message, index) => (
+                <div key={`${index}-${message}`} style={{ fontSize: 10, color: "#cbd5e1", lineHeight: 1.35 }}>
+                  {message}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
