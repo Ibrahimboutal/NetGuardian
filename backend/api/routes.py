@@ -26,6 +26,7 @@ _df = None
 _detector = AnomalyDetector()
 _stream_active = False
 _train_lock = threading.Lock()
+_state_lock = threading.RLock()
 _incident_log = []
 _benchmark_cache = None
 _incident_log_loaded = False
@@ -33,25 +34,26 @@ _incident_log_loaded = False
 
 def _load_incident_log():
     global _incident_log_loaded
-    if _incident_log_loaded:
-        return
+    with _state_lock:
+        if _incident_log_loaded:
+            return
 
-    if INCIDENT_LOG_PATH.exists():
-        try:
-            with INCIDENT_LOG_PATH.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        _incident_log.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-                del _incident_log[:-100]
-        except OSError:
-            logger.warning("Unable to load incident log from disk.")
+        if INCIDENT_LOG_PATH.exists():
+            try:
+                with INCIDENT_LOG_PATH.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            _incident_log.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue
+                    del _incident_log[:-100]
+            except OSError:
+                logger.warning("Unable to load incident log from disk.")
 
-    _incident_log_loaded = True
+        _incident_log_loaded = True
 
 
 def _append_incident_to_disk(event: dict):
@@ -64,8 +66,11 @@ def _append_incident_to_disk(event: dict):
 
 
 def _record_incident(event: dict):
-    _load_incident_log()
-    if event and event.get("anomaly"):
+    if not event or not event.get("anomaly"):
+        return
+
+    with _state_lock:
+        _load_incident_log()
         _incident_log.append(event)
         del _incident_log[:-100]
         _append_incident_to_disk(event)
@@ -377,8 +382,9 @@ def evaluation_benchmark(refresh: bool = False):
     """Run or return a cached anomaly-detection benchmark."""
     global _benchmark_cache
 
-    if _benchmark_cache is not None and not refresh:
-        return _benchmark_cache
+    with _state_lock:
+        if _benchmark_cache is not None and not refresh:
+            return _benchmark_cache
 
     _ensure_trained()
 
@@ -386,11 +392,14 @@ def evaluation_benchmark(refresh: bool = False):
 
     evaluator = NetGuardianEvaluator()
     results = evaluator.run_benchmark(num_iterations=120)
-    _benchmark_cache = {
+    benchmark = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "results": results,
     }
-    return _benchmark_cache
+
+    with _state_lock:
+        _benchmark_cache = benchmark
+        return _benchmark_cache
 
 
 @router.get("/api/stream")
