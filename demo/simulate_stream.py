@@ -6,7 +6,7 @@ Usage:
     python demo/simulate_stream.py
 
 Requirements:
-    pip install requests
+    python -m pip install -e .
     uvicorn backend.main:app --reload   (must be running)
 """
 import time

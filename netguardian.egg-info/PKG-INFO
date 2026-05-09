@@ -1,3 +1,20 @@
+Metadata-Version: 2.4
+Name: netguardian
+Version: 1.0.0
+Summary: Local-first edge AI for infrastructure anomaly response
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi==0.111.0
+Requires-Dist: uvicorn[standard]==0.29.0
+Requires-Dist: scikit-learn==1.4.2
+Requires-Dist: pandas==2.2.2
+Requires-Dist: numpy==1.26.4
+Requires-Dist: requests==2.31.0
+Requires-Dist: python-dotenv==1.0.1
+Requires-Dist: sse-starlette==2.1.0
+Requires-Dist: httpx==0.27.0
+Requires-Dist: pydantic==2.7.1
+
 # 🛡️ NetGuardian — Local-First Edge AI for Infrastructure Anomaly Response
 
 > **"Resilience at the edge, even when the cloud is dark."**
