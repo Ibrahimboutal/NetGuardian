@@ -1,7 +1,7 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import AnomalyFeed from "./AnomalyFeed";
+import { render, screen } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import AnomalyFeed from "../components/AnomalyFeed";
 
 const makeEvent = (overrides = {}) => ({
   node_id: "Router-01",
@@ -22,7 +22,6 @@ describe("AnomalyFeed", () => {
   it("renders a feed item for each event", () => {
     const events = [makeEvent(), makeEvent({ severity: "medium", node_id: "Router-02" })];
     render(<AnomalyFeed events={events} />);
-    // Both nodes should appear
     expect(screen.getByText(/Router-01/)).toBeInTheDocument();
     expect(screen.getByText(/Router-02/)).toBeInTheDocument();
   });
@@ -37,5 +36,4 @@ describe("AnomalyFeed", () => {
     // The component maps "packet_loss_pct" → "Packet Loss"
     expect(screen.getByText(/Packet Loss/)).toBeInTheDocument();
   });
-
 });

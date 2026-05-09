@@ -1,7 +1,7 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import NodeTopologyMap from "./NodeTopologyMap";
+import NodeTopologyMap from "../components/NodeTopologyMap";
 
 describe("NodeTopologyMap", () => {
   it("renders the topology header", () => {
@@ -35,7 +35,7 @@ describe("NodeTopologyMap", () => {
 
   it("renders abbreviated node labels", () => {
     render(<NodeTopologyMap anomalies={[]} />);
-    // "Core-DC-01" → "C-1", Router-01 → "R-01"
+    // "Core-DC-01" → "C-1", "Router-01" → "R-01"
     expect(screen.getByText("C-1")).toBeInTheDocument();
     expect(screen.getByText("R-01")).toBeInTheDocument();
   });
