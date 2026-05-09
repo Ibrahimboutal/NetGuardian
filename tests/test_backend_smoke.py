@@ -48,16 +48,18 @@ class BackendSmokeTests(unittest.TestCase):
         class FakeEvaluator:
             calls = 0
 
-            def run_benchmark(self, num_iterations=120):
+            def run_benchmark(self, num_iterations=120, seed=42):
                 FakeEvaluator.calls += 1
                 return {
                     "net_guardian_ai": {"precision": 0.9, "recall": 0.8, "avg_lag_sec": 10},
                     "adaptive_ma_baseline": {"precision": 0.5, "recall": 0.4, "avg_lag_sec": 18},
                 }
 
+        from unittest.mock import MagicMock
+        mock_request = MagicMock()
         with patch.object(routes, "_ensure_trained", return_value=None), patch("backend.evaluation.NetGuardianEvaluator", FakeEvaluator):
-            first = routes.evaluation_benchmark(refresh=True)
-            second = routes.evaluation_benchmark(refresh=False)
+            first = routes.evaluation_benchmark(request=mock_request, refresh=True)
+            second = routes.evaluation_benchmark(request=mock_request, refresh=False)
 
         self.assertEqual(FakeEvaluator.calls, 1)
         self.assertEqual(first, second)
