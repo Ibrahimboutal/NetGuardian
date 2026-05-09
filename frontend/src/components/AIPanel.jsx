@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Activity, Info, CheckCircle, TrendingUp, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
+import { Brain, ShieldCheck, Info, TrendingUp, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },

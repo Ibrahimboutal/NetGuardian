@@ -1,9 +1,7 @@
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, ComposedChart, Bar
+  XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine, Area, ComposedChart, Bar
 } from "recharts";
-import { useState } from "react";
-import { Activity } from "lucide-react";
 
 const METRICS = [
   { key: "latency_ms",       label: "Latency",     unit: "ms",   color: "#3b82f6", normal: 15 },

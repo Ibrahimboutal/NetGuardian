@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 function FeedItem({ event }) {
   const sev = event.severity || "low";

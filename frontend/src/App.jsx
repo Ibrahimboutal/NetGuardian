@@ -1,15 +1,15 @@
-import { Suspense, lazy, useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, lazy, useState, useEffect, useRef } from "react";
 import "./index.css";
 import StatusBadge from "./components/StatusBadge";
-import MetricChart from "./components/MetricChart";
 import {
   Activity, Play, Square, Zap, Wifi, Clock,
-  BarChart2, AlertTriangle, Server
+  BarChart2, AlertTriangle
 } from "lucide-react";
 
 const AnomalyFeed = lazy(() => import("./components/AnomalyFeed"));
 const AIPanel = lazy(() => import("./components/AIPanel"));
 const OperationsSummary = lazy(() => import("./components/OperationsSummary"));
+const MetricChart = lazy(() => import("./components/MetricChart"));
 
 const API = "http://127.0.0.1:8000";
 const MAX_DATA_POINTS = 120;
@@ -56,7 +56,7 @@ export default function App() {
 
   const eventSourceRef = useRef(null);
 
-  const refreshOperationalData = useCallback(async () => {
+  const refreshOperationalData = async () => {
     try {
       const [summaryRes, incidentsRes, insightsRes, forecastRes] = await Promise.all([
         fetch(`${API}/api/system/summary`),
@@ -75,9 +75,9 @@ export default function App() {
     } catch (err) {
       console.error("Refresh operational data failed:", err);
     }
-  }, []);
+  };
 
-  const runBenchmark = useCallback(async () => {
+  const runBenchmark = async () => {
     setBenchmarkLoading(true);
     try {
       const res = await fetch(`${API}/api/evaluation/benchmark?refresh=true`);
@@ -88,9 +88,9 @@ export default function App() {
     } finally {
       setBenchmarkLoading(false);
     }
-  }, []);
+  };
 
-  const downloadReport = useCallback(async () => {
+  const downloadReport = async () => {
     try {
       const res = await fetch(`${API}/api/incidents/export`);
       const json = await res.json();
@@ -106,7 +106,7 @@ export default function App() {
     } catch (err) {
       console.error("Download report failed:", err);
     }
-  }, []);
+  };
 
   // Clock
   useEffect(() => {
@@ -147,7 +147,7 @@ export default function App() {
   }, []);
 
   // SSE stream
-  const startStream = useCallback(() => {
+  const startStream = () => {
     if (eventSourceRef.current) return;
     const es = new EventSource(`${API}/api/stream?speed=1`);
     eventSourceRef.current = es;
@@ -204,9 +204,9 @@ export default function App() {
       setStreaming(false);
       setStatus("stable");
     };
-  }, []);
+  };
 
-  const stopStream = useCallback(() => {
+  const stopStream = () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -216,9 +216,9 @@ export default function App() {
     setStatus("stable");
     setThinking(false);
     setAgentProgress([]);
-  }, []);
+  };
 
-  const injectAnomaly = useCallback(async () => {
+  const injectAnomaly = async () => {
     setInjectLoading(true);
     setThinking(true);
     setStatus("anomaly");
@@ -238,7 +238,7 @@ export default function App() {
       setAgentProgress([]);
       setInjectLoading(false);
     }
-  }, []);
+  };
 
   const lat = latest?.latency_ms?.toFixed(0) ?? "—";
   const thr = latest?.throughput_mbps?.toFixed(0) ?? "—";
@@ -311,11 +311,13 @@ export default function App() {
             </div>
           </div>
 
-          <MetricChart
-            data={data}
-            activeMetric={activeMetric}
-            onMetricChange={setActiveMetric}
-          />
+          <Suspense fallback={<div style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading chart…</div>}>
+            <MetricChart
+              data={data}
+              activeMetric={activeMetric}
+              onMetricChange={setActiveMetric}
+            />
+          </Suspense>
         </div>
 
         {/* Right Column */}

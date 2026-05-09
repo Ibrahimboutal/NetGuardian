@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Activity, BarChart3, ChevronRight, History, RefreshCcw, ShieldAlert, Sparkles } from "lucide-react";
 
 function SmallMetric({ label, value, note, tone = "blue" }) {
@@ -64,24 +64,16 @@ export default function OperationsSummary({
   const baseMetrics = benchmark?.results?.adaptive_ma_baseline;
   const cascade = summary?.cascade || forecast?.cascade;
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const cascadeSteps = useMemo(() => cascade?.steps || [], [cascade?.steps]);
 
-  const cascadeSteps = cascade?.steps || [];
-
-  useEffect(() => {
-    if (cascadeSteps.length === 0) {
-      setActiveStepIndex(0);
-      return;
-    }
-
-    if (activeStepIndex >= cascadeSteps.length) {
-      setActiveStepIndex(0);
-    }
-  }, [activeStepIndex, cascadeSteps.length]);
+  const safeStepIndex = cascadeSteps.length === 0
+    ? 0
+    : Math.min(activeStepIndex, cascadeSteps.length - 1);
 
   const activeStep = useMemo(() => {
     if (cascadeSteps.length === 0) return null;
-    return cascadeSteps[Math.min(activeStepIndex, cascadeSteps.length - 1)];
-  }, [activeStepIndex, cascadeSteps]);
+    return cascadeSteps[safeStepIndex];
+  }, [safeStepIndex, cascadeSteps]);
 
   const cascadeTone = cascade?.risk_level === "high"
     ? "#ef4444"
