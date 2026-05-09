@@ -1,9 +1,13 @@
+LICENSE
 README.md
 pyproject.toml
 backend/__init__.py
+backend/config.py
 backend/data_factory.py
 backend/evaluation.py
 backend/main.py
+backend/observability.py
+backend/security.py
 backend/agents/__init__.py
 backend/agents/diagnosis_agent.py
 backend/agents/explanation_agent.py
@@ -24,3 +28,7 @@ netguardian.egg-info/SOURCES.txt
 netguardian.egg-info/dependency_links.txt
 netguardian.egg-info/requires.txt
 netguardian.egg-info/top_level.txt
+tests/test_api.py
+tests/test_detector.py
+tests/test_pipeline.py
+tests/test_preprocess.py

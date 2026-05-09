@@ -12,7 +12,9 @@ class industrialDataFactory:
         self.interval_sec = interval_sec
         self.num_steps = int((duration_hours * 3600) / interval_sec)
 
-    def generate(self, anomaly_rate=0.03):
+    def generate(self, anomaly_rate=0.03, seed: int | None = None):
+        if seed is not None:
+            np.random.seed(seed)
         start_time = datetime.now() - timedelta(hours=self.duration_hours)
         data = []
         node_ids = [
@@ -112,7 +114,7 @@ class industrialDataFactory:
 
 if __name__ == "__main__":
     factory = industrialDataFactory()
-    df = factory.generate()
+    df = factory.generate(seed=42)
     # Save with a specific version for the "winning" demo
-    df.to_csv("c:/Users/Ibrah/NetGuardian/data/industrial_network_live.csv", index=False)
+    df.to_csv("data/industrial_network_live.csv", index=False)
     print(f"✅ Generated High-Fidelity Industrial Telemetry.")

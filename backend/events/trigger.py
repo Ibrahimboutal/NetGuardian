@@ -3,6 +3,7 @@ import json
 from copy import deepcopy
 from backend.agents.tools import TOOLS, TOOL_REGISTRY, simulate_impact, normalize_args, sim
 from backend.agents.knowledge_base import retrieve_experience
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,10 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
             board.blackboard["safety_status"] = "CRITICAL_WARNING"
             logger.warning("🛡️ Safety Board: High risk detected. Escalating mitigation depth.")
             action = "isolate" # Escalate for safety
+
+        if action == "isolate" and not settings.allow_auto_isolate and impact_score < 120:
+            board.blackboard["safety_status"] = "REQUIRES_APPROVAL_FOR_ISOLATION"
+            action = "throttle"
             
         # --- CANONICAL EXECUTION ---
         action_res = dispatch_tool(action, {
@@ -179,17 +184,27 @@ def trigger_agent_pipeline(anomaly_event: dict, progress_cb=None):
                 "status_color": "green"
             }
 
+        low = simulate_impact(node_id, magnitude=100)
+        high = simulate_impact(node_id, magnitude=200)
+        confidence = min(0.98, round((impact_score / 200.0) + (len(critical_hits) * 0.08), 2))
+
         simulation_summary = {
             "epicenter": node_id,
             "predicted_outcome": final_diagnosis,
             "impact_score": impact_score,
+            "confidence": confidence,
             "affected_nodes_count": len(board.blackboard["simulations"][-1]["result"].get("affected_nodes", [])),
             "critical_nodes_hit": critical_hits,
-            "time_to_critical_failure": "Immediate" if impact_score > 100 else "Contained"
+            "time_to_critical_failure": "Immediate" if impact_score > 100 else "Contained",
+            "what_if": {
+                "magnitude_100": {"impact_score": low.get("impact_score"), "affected": len(low.get("affected_nodes", []))},
+                "magnitude_200": {"impact_score": high.get("impact_score"), "affected": len(high.get("affected_nodes", []))},
+            },
         }
 
         return {
             **anomaly_event,
+            "incident_state": "open",
             "diagnosis": final_diagnosis,
             "action": action_res,
             "simulation": simulation_summary,
