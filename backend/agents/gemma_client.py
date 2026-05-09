@@ -33,7 +33,7 @@ def query_gemma(prompt: str, tools: list = None, history: list = None) -> dict:
     
     logger.info(f"🤖 Native Inference: {MODEL_NAME}")
     
-    messages = history or []
+    messages = list(history) if history else []
     messages.append({"role": "user", "content": prompt})
 
     payload = {
@@ -74,18 +74,20 @@ def query_gemma(prompt: str, tools: list = None, history: list = None) -> dict:
         else:
             logger.warning(f"⚠️ Ollama unreachable (Status {response.status_code}). Falling back.")
             
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error(f"❌ Local Inference Error: {e}")
     
     return mock_gemma_response(prompt)
 
 def safe_parse(text: str) -> dict:
     try:
+        if not isinstance(text, str) or not text.strip():
+            return {"error": "parsing_failed", "raw": text}
         # Extract JSON if wrapped in markdown
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         return json.loads(text)
-    except:
+    except (json.JSONDecodeError, TypeError):
         return {"error": "parsing_failed", "raw": text}
 
 def mock_gemma_response(prompt: str) -> dict:

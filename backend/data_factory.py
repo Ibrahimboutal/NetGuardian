@@ -15,6 +15,12 @@ class industrialDataFactory:
     def generate(self, anomaly_rate=0.03):
         start_time = datetime.now() - timedelta(hours=self.duration_hours)
         data = []
+        node_ids = [
+            "Router-01", "Router-02", "Router-03", "Router-04", "Router-05",
+            "Router-14", "Switch-02", "Core-DC-01", "Substation-Alpha",
+            "Substation-Beta", "Regional-Hub-North", "Regional-Hub-South",
+            "Node-A", "Node-B", "Node-X", "Node-Y", "Backup-Vault-01"
+        ]
 
         latency_base = 12.0
         throughput_cap = 950.0
@@ -92,6 +98,7 @@ class industrialDataFactory:
 
             data.append({
                 "timestamp": ts,
+                "node_id": node_ids[i % len(node_ids)],
                 "latency_ms": round(latency, 2),
                 "throughput_mbps": round(max(0, throughput), 2),
                 "packet_loss_pct": round(min(100, max(0, pkt_loss)), 2),

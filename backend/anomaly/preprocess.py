@@ -26,6 +26,15 @@ def load_dataset(path: str) -> pd.DataFrame:
         df['timestamp'] = pd.to_datetime(today + df['timestamp'].astype(str))
     else:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+    if 'node_id' not in df.columns:
+        node_ids = [
+            'Router-01', 'Router-02', 'Router-03', 'Router-04', 'Router-05',
+            'Router-14', 'Switch-02', 'Core-DC-01', 'Substation-Alpha',
+            'Substation-Beta', 'Regional-Hub-North', 'Regional-Hub-South',
+            'Node-A', 'Node-B', 'Node-X', 'Node-Y', 'Backup-Vault-01'
+        ]
+        df['node_id'] = [node_ids[i % len(node_ids)] for i in range(len(df))]
         
     return df
 

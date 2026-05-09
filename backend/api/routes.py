@@ -418,7 +418,7 @@ async def stream_events(speed: float = 1.0):
                     def progress_cb(msg):
                         progress_messages.append(msg)
 
-                    event = await asyncio.get_event_loop().run_in_executor(
+                    event = await asyncio.get_running_loop().run_in_executor(
                         None, trigger_agent_pipeline, event, progress_cb
                     )
                     
@@ -447,7 +447,7 @@ def stop_stream():
 
 
 @router.post("/api/inject-anomaly")
-def inject_anomaly():
+def inject_anomaly(node_id: str = "Core-DC-01"):
     """
     Demo endpoint — injects a scripted high-severity anomaly into the pipeline.
     """
@@ -456,6 +456,7 @@ def inject_anomaly():
 
     scripted_row = pd.Series({
         "timestamp": pd.Timestamp.now(),
+        "node_id": node_id,
         "latency_ms": 380.0,
         "throughput_mbps": 160.0,
         "packet_loss_pct": 22.0,
