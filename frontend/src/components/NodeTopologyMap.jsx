@@ -141,12 +141,16 @@ export default function NodeTopologyMap({ anomalies = [] }) {
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
       boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
+      width: "100%",
+      minWidth: 0,
     }}>
       {/* Header */}
       <div style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 8,
         padding: "12px 16px",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
       }}>
@@ -154,7 +158,7 @@ export default function NodeTopologyMap({ anomalies = [] }) {
           <Wifi size={14} color="#06b6d4" />
           <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>Node Topology</span>
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {[
             { key: "healthy",  color: "#10b981", label: "Healthy"  },
             { key: "warning",  color: "#f59e0b", label: "Warning"  },
@@ -171,12 +175,12 @@ export default function NodeTopologyMap({ anomalies = [] }) {
       </div>
 
       {/* Topology grid */}
-      <div style={{ padding: "16px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: "12px 8px", display: "flex", flexDirection: "column", gap: 12 }}>
         {rows.map(([y, nodes]) => (
           <div key={y} style={{
             display: "flex",
             justifyContent: "center",
-            gap: 16,
+            gap: 10,
             flexWrap: "wrap",
           }}>
             {nodes.sort((a, b) => a.x - b.x).map(node => (
@@ -195,3 +199,4 @@ export default function NodeTopologyMap({ anomalies = [] }) {
     </div>
   );
 }
+
