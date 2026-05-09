@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect, useRef } from "react";
+import React, { Suspense, lazy, useState, useEffect, useRef } from "react";
 import StatusBadge from "./StatusBadge";
 import {
   Activity, Play, Square, Zap, Wifi, Clock,
@@ -285,7 +285,8 @@ export default function Dashboard() {
       </header>
 
       <main className="main">
-        <div className="stats-bar">
+        {/* ── Stats row ── */}
+        <div className="stats-area stats-bar">
           <StatCard icon={Clock} label="Latency" value={lat} unit="ms" iconClass="blue" isAnomaly={latest?.latency_ms > 100} />
           <StatCard icon={Wifi} label="Throughput" value={thr} unit="Mbps" iconClass="cyan" isAnomaly={latest?.throughput_mbps < 300} />
           <StatCard icon={Activity} label="Packet Loss" value={loss} unit="%" iconClass="red" isAnomaly={latest?.packet_loss_pct > 5} />
@@ -293,14 +294,15 @@ export default function Dashboard() {
           <StatCard icon={AlertTriangle} label="Anomalies" value={anomalies.length} unit="" iconClass="red" isAnomaly={anomalies.length > 0} />
         </div>
 
-        {/* Node Topology Map - full width row */}
-        <div style={{ gridColumn: "1 / -1" }}>
+        {/* ── Topology row ── */}
+        <div className="topo-area">
           <Suspense fallback={<div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading topology…</div>}>
             <NodeTopologyMap anomalies={anomalies} />
           </Suspense>
         </div>
 
-        <div className="chart-panel">
+        {/* ── Chart column ── */}
+        <div className="chart-area chart-panel">
           <div className="panel-header">
             <div className="panel-title">
               <Activity size={14} color="#06b6d4" />
@@ -343,7 +345,8 @@ export default function Dashboard() {
           </Suspense>
         </div>
 
-        <div className="right-panel">
+        {/* ── Right column ── */}
+        <div className="right-area right-panel">
           <Suspense fallback={<div className="feed-panel" style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading operations snapshot…</div>}>
             <OperationsSummary
               summary={systemSummary}
