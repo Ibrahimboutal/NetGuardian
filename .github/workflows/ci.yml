@@ -2,17 +2,13 @@ name: CI
 
 on:
   push:
-<<<<<<< HEAD
-=======
     branches: ["**"]
->>>>>>> 22ab5438bc7a8be841d676a78aa7face98bc6295
   pull_request:
 
 jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-<<<<<<< HEAD
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -22,25 +18,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install backend
-        run: python -m pip install -e .
-
-      - name: Run backend smoke tests
-        run: python -m unittest discover -s tests -p "test_*.py"
-
-      - name: Backend import check
-        run: python -c "from backend.main import app; print(app.title)"
-=======
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install backend
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev]
+
       - name: Run backend tests
-        run: pytest -q
->>>>>>> 22ab5438bc7a8be841d676a78aa7face98bc6295
+        run: |
+          python -m pytest -q -p no:langsmith
+
+      - name: Backend import check
+        run: python -c "from backend.main import app; print(app.title)"
 
   frontend:
     runs-on: ubuntu-latest
@@ -48,39 +35,21 @@ jobs:
       run:
         working-directory: frontend
     steps:
-<<<<<<< HEAD
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend
         run: npm install
 
-      - name: Lint frontend
-        run: npm run lint
-
-      - name: Build frontend
-        run: npm run build
-=======
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend
-        run: npm ci
-      - name: Lint frontend
-        run: npm run lint
-      - name: Build frontend
-        run: npm run build
       - name: Test frontend
         run: npm run test
 
->>>>>>> 22ab5438bc7a8be841d676a78aa7face98bc6295
+      - name: Build frontend
+        run: npm run build

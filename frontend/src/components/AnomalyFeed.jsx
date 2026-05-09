@@ -1,3 +1,4 @@
+import React from "react";
 import { CheckCircle } from "lucide-react";
 
 function FeedItem({ event }) {
@@ -22,7 +23,8 @@ function FeedItem({ event }) {
           {metricLabels[event.primary_metric] || event.primary_metric || "Network"} Anomaly
         </div>
         <div className="feed-values">
-          Latency {event.latency_ms}ms · Loss {event.packet_loss_pct}% · Score {(event.anomaly_score ?? event.score ?? 0).toFixed(3)}
+          {event.node_id && <span style={{ fontWeight: 600 }}>{event.node_id} · </span>}
+          Score {(event.anomaly_score ?? event.score ?? 0).toFixed(3)}
         </div>
         <div className="feed-time">{ts}</div>
       </div>
@@ -30,6 +32,7 @@ function FeedItem({ event }) {
     </div>
   );
 }
+
 
 export default function AnomalyFeed({ events }) {
   if (events.length === 0) {

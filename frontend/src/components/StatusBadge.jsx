@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function StatusBadge({ status, anomalyCount }) {
   const states = {
     stable:     { label: "All Systems Stable", cls: "stable" },

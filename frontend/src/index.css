@@ -55,13 +55,14 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  background: rgba(15, 22, 41, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   position: sticky;
   top: 0;
   z-index: 100;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 .header-logo {
@@ -130,16 +131,19 @@ html, body, #root {
 }
 
 .stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: rgba(19, 25, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius);
   padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
 .stat-card::before {
@@ -153,7 +157,12 @@ html, body, #root {
 }
 
 .stat-card:hover::before { opacity: 1; }
-.stat-card:hover { border-color: var(--border-bright); background: var(--bg-card-hover); }
+.stat-card:hover { 
+  border-color: rgba(255, 255, 255, 0.15); 
+  background: rgba(26, 34, 53, 0.8); 
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
+}
 
 .stat-card.anomaly {
   border-color: rgba(239, 68, 68, 0.4);
@@ -216,12 +225,15 @@ html, body, #root {
 
 /* Chart panel */
 .chart-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: rgba(19, 25, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
 .panel-header {
@@ -334,13 +346,16 @@ html, body, #root {
 
 /* Anomaly feed */
 .feed-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: rgba(19, 25, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   max-height: 280px;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
 .feed-list {
@@ -418,13 +433,17 @@ html, body, #root {
 
 /* AI Panel */
 .ai-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: rgba(19, 25, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
 }
 
 .ai-panel.active {

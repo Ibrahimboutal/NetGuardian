@@ -521,6 +521,24 @@ def stop_stream():
     return {"status": "stopped"}
 
 
+@router.get("/api/nodes/status")
+def nodes_status(request: Request):
+    """Return live node states from the network simulator for the topology map."""
+    enforce_rate_limit(request)
+    from backend.agents.tools import sim, NETWORK_TOPOLOGY
+    nodes = []
+    for node_id, state in sim.node_states.items():
+        nodes.append({
+            "node_id": node_id,
+            "status": state.get("status", "Healthy"),
+            "load": state.get("load", 0),
+            "capacity": state.get("capacity", 150),
+            "criticality": state.get("criticality", 1),
+            "neighbors": NETWORK_TOPOLOGY.get(node_id, []),
+        })
+    return {"nodes": nodes, "total": len(nodes)}
+
+
 @router.post("/api/inject-anomaly")
 def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
     """

@@ -9,6 +9,7 @@ const AnomalyFeed = lazy(() => import("./AnomalyFeed"));
 const AIPanel = lazy(() => import("./AIPanel"));
 const OperationsSummary = lazy(() => import("./OperationsSummary"));
 const MetricChart = lazy(() => import("./MetricChart"));
+const NodeTopologyMap = lazy(() => import("./NodeTopologyMap"));
 
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || "";
@@ -290,6 +291,13 @@ export default function Dashboard() {
           <StatCard icon={Activity} label="Packet Loss" value={loss} unit="%" iconClass="red" isAnomaly={latest?.packet_loss_pct > 5} />
           <StatCard icon={BarChart2} label="Jitter" value={jit} unit="ms" iconClass="orange" isAnomaly={latest?.jitter_ms > 20} />
           <StatCard icon={AlertTriangle} label="Anomalies" value={anomalies.length} unit="" iconClass="red" isAnomaly={anomalies.length > 0} />
+        </div>
+
+        {/* Node Topology Map - full width row */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Suspense fallback={<div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading topology…</div>}>
+            <NodeTopologyMap anomalies={anomalies} />
+          </Suspense>
         </div>
 
         <div className="chart-panel">
