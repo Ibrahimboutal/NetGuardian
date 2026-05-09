@@ -4,16 +4,21 @@ Version: 1.0.0
 Summary: Local-first edge AI for infrastructure anomaly response
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: fastapi==0.111.0
-Requires-Dist: uvicorn[standard]==0.29.0
-Requires-Dist: scikit-learn==1.4.2
-Requires-Dist: pandas==2.2.2
-Requires-Dist: numpy==1.26.4
-Requires-Dist: requests==2.31.0
-Requires-Dist: python-dotenv==1.0.1
-Requires-Dist: sse-starlette==2.1.0
-Requires-Dist: httpx==0.27.0
-Requires-Dist: pydantic==2.7.1
+License-File: LICENSE
+Requires-Dist: fastapi>=0.111.0
+Requires-Dist: uvicorn[standard]>=0.29.0
+Requires-Dist: scikit-learn>=1.4.2
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: requests>=2.31.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: sse-starlette>=2.1.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.7.1
+Requires-Dist: joblib>=1.4.2
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2.0; extra == "dev"
+Dynamic: license-file
 
 # 🛡️ NetGuardian — Local-First Edge AI for Infrastructure Anomaly Response
 
@@ -87,6 +92,8 @@ Then start the API with:
 uvicorn backend.main:app --reload
 ```
 
+Optional: copy `.env.example` to `.env` and update security/runtime values (`NETGUARDIAN_API_TOKEN`, `OLLAMA_URL`, CORS origins, and retention settings).
+
 ---
 
 ## 🧠 Multi-Agent Logic Engine
@@ -123,3 +130,4 @@ uvicorn backend.main:app --reload
 ## Demo Notes
 - The repo is intentionally demo-friendly: if Ollama is unavailable, the agent layer falls back to deterministic JSON so the interface remains usable.
 - For the hackathon writeup, focus on the end-to-end flow, the agent contract, and the grounded simulation output rather than claiming full production autonomy.
+- Sensitive incident endpoints (export, acknowledge, resolve) require the `X-API-Key` header matching `NETGUARDIAN_API_TOKEN`.

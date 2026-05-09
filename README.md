@@ -70,6 +70,8 @@ Then start the API with:
 uvicorn backend.main:app --reload
 ```
 
+Optional: copy `.env.example` to `.env` and update security/runtime values (`NETGUARDIAN_API_TOKEN`, `OLLAMA_URL`, CORS origins, and retention settings).
+
 ---
 
 ## 🧠 Multi-Agent Logic Engine
@@ -106,3 +108,4 @@ uvicorn backend.main:app --reload
 ## Demo Notes
 - The repo is intentionally demo-friendly: if Ollama is unavailable, the agent layer falls back to deterministic JSON so the interface remains usable.
 - For the hackathon writeup, focus on the end-to-end flow, the agent contract, and the grounded simulation output rather than claiming full production autonomy.
+- Sensitive incident endpoints (export, acknowledge, resolve) require the `X-API-Key` header matching `NETGUARDIAN_API_TOKEN`.

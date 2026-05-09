@@ -1,13 +1,14 @@
 import logging
 import json
 import requests
-import os
+
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
 # Enterprise-Grade Ollama Configuration
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "gemma4:9b" # Optimized for edge-based disaster response
+OLLAMA_URL = settings.ollama_url
+MODEL_NAME = settings.ollama_model  # Optimized for edge-based disaster response
 
 def log_inference_profile(latency: float):
     """Proof of Work: Edge Inference Profiling for the Hackathon."""

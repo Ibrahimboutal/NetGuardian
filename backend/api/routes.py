@@ -1,10 +1,12 @@
 import asyncio
 import json
 import logging
+import uuid
+import requests
 from pathlib import Path
 from collections import Counter
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -12,6 +14,8 @@ from backend.anomaly.preprocess import load_dataset
 from backend.anomaly.detector import AnomalyDetector
 from backend.events.trigger import trigger_agent_pipeline
 from backend.data_factory import industrialDataFactory
+from backend.config import settings
+from backend.security import require_api_key, enforce_rate_limit, sanitize_payload
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -22,6 +26,7 @@ from datetime import datetime, timezone
 # --- Shared state ---
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "ML-MATT-CompetitionQT2021_train.csv"
 INCIDENT_LOG_PATH = Path(__file__).parent.parent.parent / "data" / "incident_log.jsonl"
+AUDIT_LOG_PATH = Path(__file__).parent.parent.parent / "data" / "incident_audit.jsonl"
 _df = None
 _detector = AnomalyDetector()
 _stream_active = False
@@ -49,7 +54,7 @@ def _load_incident_log():
                             _incident_log.append(json.loads(line))
                         except json.JSONDecodeError:
                             continue
-                    del _incident_log[:-100]
+                    del _incident_log[:-settings.incident_retention_count]
             except OSError:
                 logger.warning("Unable to load incident log from disk.")
 
@@ -58,22 +63,76 @@ def _load_incident_log():
 
 def _append_incident_to_disk(event: dict):
     try:
+        if INCIDENT_LOG_PATH.exists() and INCIDENT_LOG_PATH.stat().st_size >= settings.incident_log_max_bytes:
+            rotated = INCIDENT_LOG_PATH.with_name(f"incident_log.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.jsonl")
+            INCIDENT_LOG_PATH.rename(rotated)
         INCIDENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with INCIDENT_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, default=str) + "\n")
+            handle.write(json.dumps(sanitize_payload(event), default=str) + "\n")
     except OSError:
         logger.warning("Unable to persist incident log entry.")
+
+
+def _append_audit_log(entry: dict):
+    try:
+        AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, default=str) + "\n")
+    except OSError:
+        logger.warning("Unable to persist incident audit entry.")
+
+
+def _emit_alert(event: dict):
+    if not settings.alerts_webhook_url:
+        return
+    severity = str(event.get("severity", "")).lower()
+    if severity not in {"high", "critical"}:
+        return
+    try:
+        requests.post(
+            settings.alerts_webhook_url,
+            json={
+                "source": "netguardian",
+                "incident_id": event.get("incident_id"),
+                "severity": severity,
+                "primary_metric": event.get("primary_metric"),
+                "node_id": event.get("node_id"),
+                "timestamp": event.get("timestamp"),
+            },
+            timeout=2.5,
+        )
+    except requests.RequestException:
+        logger.warning("Alert webhook failed")
 
 
 def _record_incident(event: dict):
     if not event or not event.get("anomaly"):
         return
 
+    event.setdefault("incident_id", str(uuid.uuid4()))
+    event.setdefault("incident_state", "open")
+    event.setdefault("assigned_to", None)
+
     with _state_lock:
         _load_incident_log()
         _incident_log.append(event)
-        del _incident_log[:-100]
+        del _incident_log[:-settings.incident_retention_count]
         _append_incident_to_disk(event)
+        _append_audit_log({
+            "incident_id": event.get("incident_id"),
+            "action": "incident_recorded",
+            "at": datetime.now(timezone.utc).isoformat(),
+            "state": event.get("incident_state", "open"),
+        })
+    _emit_alert(event)
+
+
+def _find_incident_or_404(incident_id: str) -> dict:
+    _load_incident_log()
+    for incident in reversed(_incident_log):
+        if incident.get("incident_id") == incident_id:
+            return incident
+    raise HTTPException(status_code=404, detail="Incident not found")
 
 
 def _build_summary() -> dict:
@@ -303,7 +362,8 @@ def _ensure_trained():
 
 
 @router.get("/api/health")
-def health():
+def health(request: Request):
+    enforce_rate_limit(request)
     _ensure_trained()
     return {
         "status": "ok",
@@ -316,8 +376,9 @@ def health():
 
 
 @router.get("/api/metrics/history")
-def metrics_history():
+def metrics_history(request: Request):
     """Return the full dataset for initial chart rendering."""
+    enforce_rate_limit(request)
     _ensure_trained()
     # Take last 100 points for initial UI load
     records = _df.tail(100).to_dict(orient="records")
@@ -327,16 +388,17 @@ def metrics_history():
 
 
 @router.get("/api/incidents/recent")
-def recent_incidents(limit: int = 20):
+def recent_incidents(request: Request, limit: int = Query(default=20, ge=1, le=100)):
     """Return the most recent incident payloads for operator review."""
+    enforce_rate_limit(request)
     _load_incident_log()
-    limit = max(1, min(limit, 100))
-    return {"data": _incident_log[-limit:]}
+    return {"data": [sanitize_payload(i) for i in _incident_log[-limit:]]}
 
 
 @router.get("/api/system/summary")
-def system_summary():
+def system_summary(request: Request):
     """Return a compact operational summary for the demo and writeup."""
+    enforce_rate_limit(request)
     _ensure_trained()
     summary = _build_summary()
     summary["insights"] = _build_insights()
@@ -348,22 +410,25 @@ def system_summary():
 
 
 @router.get("/api/incidents/insights")
-def incident_insights():
+def incident_insights(request: Request):
     """Return recurring-pattern insights derived from the incident memory."""
+    enforce_rate_limit(request)
     return _build_insights()
 
 
 @router.get("/api/incidents/forecast")
-def incident_forecast():
+def incident_forecast(request: Request):
     """Return a short-horizon forecast based on recent incident memory."""
+    enforce_rate_limit(request)
     forecast = _build_forecast()
     forecast["cascade"] = _build_cascade_timeline()
     return forecast
 
 
 @router.get("/api/incidents/export")
-def export_incidents():
+def export_incidents(request: Request, _: str = Depends(require_api_key)):
     """Return a single JSON report that can be downloaded by the frontend."""
+    enforce_rate_limit(request)
     _load_incident_log()
     _ensure_trained()
     return {
@@ -371,15 +436,16 @@ def export_incidents():
         "insights": _build_insights(),
         "forecast": _build_forecast(),
         "cascade": _build_cascade_timeline(),
-        "recent_incidents": _incident_log[-100:],
+        "recent_incidents": [sanitize_payload(item) for item in _incident_log[-100:]],
         "benchmark": _benchmark_cache,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
 @router.get("/api/evaluation/benchmark")
-def evaluation_benchmark(refresh: bool = False):
+def evaluation_benchmark(request: Request, refresh: bool = False, seed: int = Query(default=42, ge=0, le=999999)):
     """Run or return a cached anomaly-detection benchmark."""
+    enforce_rate_limit(request)
     global _benchmark_cache
 
     with _state_lock:
@@ -391,7 +457,7 @@ def evaluation_benchmark(refresh: bool = False):
     from backend.evaluation import NetGuardianEvaluator
 
     evaluator = NetGuardianEvaluator()
-    results = evaluator.run_benchmark(num_iterations=120)
+    results = evaluator.run_benchmark(num_iterations=120, seed=seed)
     benchmark = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "results": results,
@@ -456,10 +522,11 @@ def stop_stream():
 
 
 @router.post("/api/inject-anomaly")
-def inject_anomaly(node_id: str = "Core-DC-01"):
+def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
     """
     Demo endpoint — injects a scripted high-severity anomaly into the pipeline.
     """
+    enforce_rate_limit(request)
     _ensure_trained()
     import pandas as pd
 
@@ -481,3 +548,45 @@ def inject_anomaly(node_id: str = "Core-DC-01"):
     result = trigger_agent_pipeline(event)
     _record_incident(result)
     return result
+
+
+@router.post("/api/incidents/{incident_id}/ack")
+def acknowledge_incident(
+    incident_id: str,
+    request: Request,
+    assigned_to: str = Query(default="on-call"),
+    _: str = Depends(require_api_key),
+):
+    enforce_rate_limit(request)
+    incident = _find_incident_or_404(incident_id)
+    incident["incident_state"] = "acknowledged"
+    incident["assigned_to"] = assigned_to
+    entry = {
+        "incident_id": incident_id,
+        "action": "acknowledged",
+        "assigned_to": assigned_to,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    _append_audit_log(entry)
+    return {"status": "ok", "incident": sanitize_payload(incident)}
+
+
+@router.post("/api/incidents/{incident_id}/resolve")
+def resolve_incident(
+    incident_id: str,
+    request: Request,
+    resolution_note: str = Query(default="resolved_by_operator"),
+    _: str = Depends(require_api_key),
+):
+    enforce_rate_limit(request)
+    incident = _find_incident_or_404(incident_id)
+    incident["incident_state"] = "resolved"
+    incident["resolution_note"] = resolution_note[:200]
+    entry = {
+        "incident_id": incident_id,
+        "action": "resolved",
+        "note": resolution_note[:200],
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    _append_audit_log(entry)
+    return {"status": "ok", "incident": sanitize_payload(incident)}
