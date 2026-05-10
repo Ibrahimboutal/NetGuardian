@@ -7,6 +7,7 @@ from pathlib import Path
 import joblib
 from .preprocess import engine
 from sklearn.ensemble import IsolationForest
+import shap
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class AnomalyDetector:
         self.feedback_count = 0
         self.score_window = []
         self.window_size = 12 # ~1 minute at 5s sampling
+        self.explainer = None
         self._load_model_if_exists()
 
     def fit(self, df: pd.DataFrame):
@@ -56,6 +58,10 @@ class AnomalyDetector:
             self.model.fit(X)
             self.is_trained = True
             self.training_data = features_list[-500:]
+            try:
+                self.explainer = shap.TreeExplainer(self.model)
+            except Exception as e:
+                logger.warning(f"SHAP Explainer initialization failed: {e}")
 
         self.save_model()
 
@@ -70,6 +76,7 @@ class AnomalyDetector:
                 X = np.array(self.training_data)
                 self.model.fit(X)
                 self.is_trained = True
+                self.explainer = shap.TreeExplainer(self.model)
                 self.steps_since_train = 0
             else:
                 self.steps_since_train += 1
@@ -129,21 +136,33 @@ class AnomalyDetector:
             is_anomaly = False
             score *= 0.5
 
-        # --- Attribution ---
+        # --- Attribution (Enhanced with SHAP) ---
         attribution = []
+        shap_contributions = {}
 
-        if is_anomaly and len(self.training_data) > 0:
-            train_mean = np.mean(self.training_data, axis=0)
-            train_std = np.std(self.training_data, axis=0) + 1e-6
-
-            z_scores = np.abs((features - train_mean) / train_std)
-            top_indices = np.argsort(z_scores)[-3:][::-1]
-
-            attribution = [
-                self.feature_names[i]
-                for i in top_indices
-                if i < len(self.feature_names) and z_scores[i] > 2.0
-            ]
+        if is_anomaly and self.explainer:
+            try:
+                # SHAP for Isolation Forest: base_offset + sum(shap_values) = model.decision_function
+                # Higher (positive) SHAP values indicate features pushing towards ANOMALY (IsolationForest specific)
+                sv = self.explainer.shap_values(X)[0]
+                
+                # Pair with feature names
+                for i, val in enumerate(sv):
+                    if i < len(self.feature_names):
+                        shap_contributions[self.feature_names[i]] = float(val)
+                
+                # Top 3 features by absolute SHAP value
+                sorted_indices = np.argsort(np.abs(sv))[-3:][::-1]
+                attribution = [self.feature_names[i] for i in sorted_indices if i < len(self.feature_names)]
+            except Exception as e:
+                logger.warning(f"SHAP prediction failed: {e}")
+                # Fallback to simple Z-score attribution
+                if len(self.training_data) > 10:
+                    train_mean = np.mean(self.training_data, axis=0)
+                    train_std = np.std(self.training_data, axis=0) + 1e-6
+                    z_scores = np.abs((features - train_mean) / train_std)
+                    top_indices = np.argsort(z_scores)[-3:][::-1]
+                    attribution = [self.feature_names[i] for i in top_indices if i < len(self.feature_names)]
 
         # --- Severity ---
         severity = "normal"
@@ -179,7 +198,7 @@ class AnomalyDetector:
                     severity = "low"
                     attribution = attribution or ["score_velocity"]
 
-        return is_anomaly, abs(score), severity, attribution
+        return is_anomaly, abs(score), severity, attribution, shap_contributions
 
     def calibrate_from_feedback(self, is_valid: bool, severity: str):
         """
@@ -219,7 +238,7 @@ class AnomalyDetector:
         
         # Predict
         node_id = data.get("node_id", "Router-14")
-        is_anomaly, score, severity, attribution = self.predict(features, node_id=node_id)
+        is_anomaly, score, severity, attribution, shap_vals = self.predict(features, node_id=node_id)
         primary_metric = attribution[0] if attribution else "latency_ms"
 
         # Build payload
@@ -230,6 +249,7 @@ class AnomalyDetector:
             "anomaly_score": round(score, 4),
             "severity": severity,
             "attribution": attribution,
+            "shap_values": shap_vals,
             "primary_metric": primary_metric,
             "metrics": clean_data,
             "node_id": node_id

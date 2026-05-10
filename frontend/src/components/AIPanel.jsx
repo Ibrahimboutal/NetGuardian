@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Brain, ShieldCheck, Info, TrendingUp, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
+import SHAPChart from "./SHAPChart";
 
 const TABS = [
   { id: "explanation", label: "Briefing",       icon: Info },
@@ -255,6 +256,11 @@ export default function AIPanel({ incident, thinking, progressMessages = [], ben
               }}>
                 "{diagnosis.reasoning_trace}"
               </div>
+            </div>
+
+            {/* Feature-Level Explainability (SHAP) */}
+            <div style={{ borderTop: "1px solid #1e2d4a", paddingTop: 12 }}>
+               <SHAPChart shapValues={incident?.shap_values} />
             </div>
           </div>
         )}
