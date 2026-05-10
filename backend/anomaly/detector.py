@@ -29,6 +29,8 @@ class AnomalyDetector:
         ]
         self.threshold_offset = 0.0
         self.feedback_count = 0
+        self.score_window = []
+        self.window_size = 12 # ~1 minute at 5s sampling
         self._load_model_if_exists()
 
     def fit(self, df: pd.DataFrame):
@@ -156,6 +158,26 @@ class AnomalyDetector:
 
         if train:
             self.train_step(features)
+
+        # --- Temporal Early Warning ---
+        with self.lock:
+            self.score_window.append(abs(score))
+            if len(self.score_window) > self.window_size:
+                self.score_window.pop(0)
+            
+            velocity = 0.0
+            if len(self.score_window) >= 3:
+                # Calculate simple slope of latest 3 scores
+                latest = self.score_window[-3:]
+                velocity = (latest[2] - latest[0]) / 2.0
+            
+            if not is_anomaly and velocity > 0.15:
+                logger.warning(f"⚠️ Early Warning: Anomaly score velocity spiking (+{velocity:.4f}/step) on {node_id}")
+                # We could promote this to a low-severity anomaly if needed
+                if velocity > 0.25:
+                    is_anomaly = True
+                    severity = "low"
+                    attribution = attribution or ["score_velocity"]
 
         return is_anomaly, abs(score), severity, attribution
 

@@ -3,6 +3,7 @@ import json
 from copy import deepcopy
 from backend.agents.tools import TOOLS, TOOL_REGISTRY, simulate_impact, normalize_args, sim
 from backend.agents.knowledge_base import retrieve_experience
+from backend.db import search_knowledge_base, add_knowledge_entry
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,12 @@ def dispatch_tool(tool_name: str, args: dict):
     if canonical in TOOLS:
         logger.info(f"⚡ Dispatching: {canonical}({normalized_args})")
         return TOOLS[canonical](**normalized_args)
+
+    if canonical == "query_knowledge_base":
+        logger.info(f"⚡ Querying KB: {normalized_args.get('query')}")
+        # Use run_in_executor for async db call if needed, or handle it here
+        import asyncio
+        return asyncio.run(search_knowledge_base(normalized_args.get("query", "")))
 
     return {"error": f"Tool '{canonical}' not found in registry."}
 

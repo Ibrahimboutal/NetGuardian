@@ -47,6 +47,20 @@ DIAGNOSIS_TOOLS = [
                 "required": ["node_id"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_knowledge_base",
+            "description": "Searches past resolved incidents for similar root causes and remedies.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search term (e.g., 'latency spike', 'BGP flapping')"}
+                },
+                "required": ["query"]
+            }
+        }
     }
 ]
 

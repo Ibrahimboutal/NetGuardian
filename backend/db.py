@@ -1,6 +1,7 @@
 import aiosqlite
 import json
 import logging
+import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -139,3 +140,33 @@ async def get_db_summary():
             stats["average_score"] = round((await cursor.fetchone())["avg_score"] or 0, 4)
             
         return stats
+
+async def search_knowledge_base(query: str, limit: int = 3):
+    """Search the Knowledge Base for similar past cases (Simple Keyword Search)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # Case-insensitive partial match on name or description
+        search = f"%{query}%"
+        async with db.execute(
+            "SELECT * FROM knowledge_base_custom WHERE name LIKE ? OR description LIKE ? LIMIT ?",
+            (search, search, limit)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+async def add_knowledge_entry(name: str, description: str, remedy: str, incident_id: str = None):
+    """Add a new entry to the persistent Knowledge Base."""
+    entry_id = str(uuid.uuid4())[:8] if not incident_id else f"KB-{incident_id[:8]}"
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO knowledge_base_custom (id, name, description, remedy, source_incident_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry_id, name, description, remedy, incident_id,
+                datetime.now(timezone.utc).isoformat()
+            )
+        )
+        await db.commit()
+    return entry_id

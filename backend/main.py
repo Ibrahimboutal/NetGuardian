@@ -21,8 +21,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    from backend.db import init_db
+    from backend.db import init_db, add_knowledge_entry
     await init_db()
+    # Seed a high-impact demo entry
+    await add_knowledge_entry(
+        name="Gemma-Induced Buffer Flush",
+        description="Observed when high-frequency telemetry overloads the Core-DC edge. Characterized by latency spikes > 300ms.",
+        remedy="Apply 75% traffic throttling to the affected ingress leaf and prioritize BGP control plane traffic.",
+        incident_id="SEED-001"
+    )
 
 app.add_middleware(RequestContextMiddleware)
 
