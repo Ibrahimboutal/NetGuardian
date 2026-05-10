@@ -10,6 +10,9 @@ const AIPanel = lazy(() => import("./AIPanel"));
 const OperationsSummary = lazy(() => import("./OperationsSummary"));
 const MetricChart = lazy(() => import("./MetricChart"));
 const NodeTopologyMap = lazy(() => import("./NodeTopologyMap"));
+const HeatmapTimeline = lazy(() => import("./HeatmapTimeline"));
+const IncidentKanban = lazy(() => import("./IncidentKanban"));
+const InjectModal = lazy(() => import("./InjectModal"));
 
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || "";
@@ -47,6 +50,8 @@ export default function Dashboard() {
   const [activeMetric, setActiveMetric] = useState("latency_ms");
   const [clock, setClock] = useState(new Date());
   const [injectLoading, setInjectLoading] = useState(false);
+  const [showInjectModal, setShowInjectModal] = useState(false);
+  const [view, setView] = useState("dashboard"); // "dashboard" or "kanban"
   const [systemSummary, setSystemSummary] = useState(null);
   const [incidentInsights, setIncidentInsights] = useState(null);
   const [incidentForecast, setIncidentForecast] = useState(null);
@@ -56,8 +61,35 @@ export default function Dashboard() {
   const [agentProgress, setAgentProgress] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
   const reconnectTimerRef = useRef(null);
+  const audioCtxRef = useRef(null);
 
   const eventSourceRef = useRef(null);
+
+  const playAlert = useCallback((severity) => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = severity === "critical" ? "sawtooth" : "sine";
+      osc.frequency.setValueAtTime(severity === "critical" ? 180 : 440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(severity === "critical" ? 40 : 220, ctx.currentTime + 0.5);
+      
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.warn("Audio alert failed:", e);
+    }
+  }, []);
 
   const refreshOperationalData = async () => {
     try {
@@ -185,6 +217,10 @@ export default function Dashboard() {
           return next.slice(0, 5);
         });
 
+        if (event.severity === "critical" || event.severity === "high") {
+          playAlert(event.severity);
+        }
+
         if (event.agents) {
           setLatestIncident(event);
           setThinking(false);
@@ -277,6 +313,22 @@ export default function Dashboard() {
         </div>
 
         <div className="header-right">
+          <nav style={{ display: "flex", gap: 12, marginRight: 24 }}>
+            <button 
+              className={`btn ${view === 'dashboard' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setView('dashboard')}
+              style={{ fontSize: 11, padding: "4px 10px" }}
+            >
+              Dashboard
+            </button>
+            <button 
+              className={`btn ${view === 'kanban' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setView('kanban')}
+              style={{ fontSize: 11, padding: "4px 10px" }}
+            >
+              Incident Kanban
+            </button>
+          </nav>
           <div className="header-time">
             {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
@@ -285,102 +337,131 @@ export default function Dashboard() {
       </header>
 
       <main className="main">
-        {/* ── Stats row ── */}
-        <div className="stats-area stats-bar">
-          <StatCard icon={Clock} label="Latency" value={lat} unit="ms" iconClass="blue" isAnomaly={latest?.latency_ms > 100} />
-          <StatCard icon={Wifi} label="Throughput" value={thr} unit="Mbps" iconClass="cyan" isAnomaly={latest?.throughput_mbps < 300} />
-          <StatCard icon={Activity} label="Packet Loss" value={loss} unit="%" iconClass="red" isAnomaly={latest?.packet_loss_pct > 5} />
-          <StatCard icon={BarChart2} label="Jitter" value={jit} unit="ms" iconClass="orange" isAnomaly={latest?.jitter_ms > 20} />
-          <StatCard icon={AlertTriangle} label="Anomalies" value={anomalies.length} unit="" iconClass="red" isAnomaly={anomalies.length > 0} />
-        </div>
-
-        {/* ── Topology row ── */}
-        <div className="topo-area">
-          <Suspense fallback={<div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading topology…</div>}>
-            <NodeTopologyMap anomalies={anomalies} />
-          </Suspense>
-        </div>
-
-        {/* ── Chart column ── */}
-        <div className="chart-area chart-panel">
-          <div className="panel-header">
-            <div className="panel-title">
-              <Activity size={14} color="#06b6d4" />
-              Real-Time Network Metrics
-              {streaming && (
-                <span style={{ marginLeft: 8, fontSize: 10, color: "#10b981", fontWeight: 400 }}>
-                  ● LIVE
-                </span>
-              )}
+        {view === "dashboard" ? (
+          <>
+            {/* ── Stats row ── */}
+            <div className="stats-area stats-bar">
+              <StatCard icon={Clock} label="Latency" value={lat} unit="ms" iconClass="blue" isAnomaly={latest?.latency_ms > 100} />
+              <StatCard icon={Wifi} label="Throughput" value={thr} unit="Mbps" iconClass="cyan" isAnomaly={latest?.throughput_mbps < 300} />
+              <StatCard icon={Activity} label="Packet Loss" value={loss} unit="%" iconClass="red" isAnomaly={latest?.packet_loss_pct > 5} />
+              <StatCard icon={BarChart2} label="Jitter" value={jit} unit="ms" iconClass="orange" isAnomaly={latest?.jitter_ms > 20} />
+              <StatCard icon={AlertTriangle} label="Anomalies" value={anomalies.length} unit="" iconClass="red" isAnomaly={anomalies.length > 0} />
             </div>
-            <div className="panel-actions">
-              {!streaming ? (
-                <button id="btn-start-stream" className="btn btn-primary" onClick={startStream}>
-                  <Play size={12} /> Start Stream
-                </button>
-              ) : (
-                <button id="btn-stop-stream" className="btn btn-ghost" onClick={stopStream}>
-                  <Square size={12} /> Stop
-                </button>
-              )}
-              <button
-                id="btn-inject-anomaly"
-                className="btn btn-danger"
-                onClick={injectAnomaly}
-                disabled={injectLoading}
-              >
-                <Zap size={12} />
-                {injectLoading ? "Injecting…" : "Inject Anomaly"}
-              </button>
+
+            {/* ── Topology row ── */}
+            <div className="topo-area" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Suspense fallback={<div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading topology…</div>}>
+                <NodeTopologyMap anomalies={anomalies} activeIncident={latestIncident} />
+              </Suspense>
+              <Suspense fallback={<div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading heatmap…</div>}>
+                <HeatmapTimeline anomalies={anomalies} />
+              </Suspense>
             </div>
-          </div>
-          {errorMsg && (
-            <div style={{ marginBottom: 10, color: "#fca5a5", fontSize: 12 }}>
-              {errorMsg}
-            </div>
-          )}
 
-          <Suspense fallback={<div style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading chart…</div>}>
-            <MetricChart data={data} activeMetric={activeMetric} onMetricChange={setActiveMetric} />
-          </Suspense>
-        </div>
-
-        {/* ── Right column ── */}
-        <div className="right-area right-panel">
-          <Suspense fallback={<div className="feed-panel" style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading operations snapshot…</div>}>
-            <OperationsSummary
-              summary={systemSummary}
-              insights={incidentInsights}
-              forecast={incidentForecast}
-              recentIncidents={recentIncidents}
-              benchmark={benchmark}
-              benchmarkLoading={benchmarkLoading}
-              onRefresh={refreshOperationalData}
-              onRunBenchmark={runBenchmark}
-              onDownloadReport={downloadReport}
-            />
-          </Suspense>
-
-          <Suspense fallback={<div className="feed-panel" style={{ minHeight: 180, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading anomaly feed…</div>}>
-            <div className="feed-panel">
+            {/* ── Chart column ── */}
+            <div className="chart-area chart-panel">
               <div className="panel-header">
                 <div className="panel-title">
-                  <AlertTriangle size={14} color="#ef4444" />
-                  Anomaly Feed
+                  <Activity size={14} color="#06b6d4" />
+                  Real-Time Network Metrics
+                  {streaming && (
+                    <span style={{ marginLeft: 8, fontSize: 10, color: "#10b981", fontWeight: 400 }}>
+                      ● LIVE
+                    </span>
+                  )}
                 </div>
-                {anomalies.length > 0 && (
-                  <span className="anomaly-count-badge">{anomalies.length}</span>
-                )}
+                <div className="panel-actions">
+                  {!streaming ? (
+                    <button id="btn-start-stream" className="btn btn-primary" onClick={startStream}>
+                      <Play size={12} /> Start Stream
+                    </button>
+                  ) : (
+                    <button id="btn-stop-stream" className="btn btn-ghost" onClick={stopStream}>
+                      <Square size={12} /> Stop
+                    </button>
+                  )}
+                  <button
+                    id="btn-inject-anomaly"
+                    className="btn btn-danger"
+                    onClick={() => setShowInjectModal(true)}
+                  >
+                    <Zap size={12} />
+                    Inject Custom
+                  </button>
+                </div>
               </div>
-              <AnomalyFeed events={anomalies} />
-            </div>
-          </Suspense>
+              {errorMsg && (
+                <div style={{ marginBottom: 10, color: "#fca5a5", fontSize: 12 }}>
+                  {errorMsg}
+                </div>
+              )}
 
-          <Suspense fallback={<div className="ai-panel" style={{ minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading reasoning panel…</div>}>
-            <AIPanel incident={latestIncident} thinking={thinking} progressMessages={agentProgress} />
-          </Suspense>
-        </div>
+              <Suspense fallback={<div style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading chart…</div>}>
+                <MetricChart data={data} activeMetric={activeMetric} onMetricChange={setActiveMetric} />
+              </Suspense>
+            </div>
+
+            {/* ── Right column ── */}
+            <div className="right-area right-panel">
+              <Suspense fallback={<div className="feed-panel" style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading operations snapshot…</div>}>
+                <OperationsSummary
+                  summary={systemSummary}
+                  insights={incidentInsights}
+                  forecast={incidentForecast}
+                  recentIncidents={recentIncidents}
+                  benchmark={benchmark}
+                  benchmarkLoading={benchmarkLoading}
+                  onRefresh={refreshOperationalData}
+                  onRunBenchmark={runBenchmark}
+                  onDownloadReport={downloadReport}
+                />
+              </Suspense>
+
+              <Suspense fallback={<div className="feed-panel" style={{ minHeight: 180, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading anomaly feed…</div>}>
+                <div className="feed-panel">
+                  <div className="panel-header">
+                    <div className="panel-title">
+                      <AlertTriangle size={14} color="#ef4444" />
+                      Anomaly Feed
+                    </div>
+                    {anomalies.length > 0 && (
+                      <span className="anomaly-count-badge">{anomalies.length}</span>
+                    )}
+                  </div>
+                  <AnomalyFeed events={anomalies} />
+                </div>
+              </Suspense>
+
+              <Suspense fallback={<div className="ai-panel" style={{ minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading reasoning panel…</div>}>
+                <AIPanel incident={latestIncident} thinking={thinking} progressMessages={agentProgress} benchmark={benchmark} />
+              </Suspense>
+            </div>
+          </>
+        ) : (
+          <div style={{ gridArea: "1 / 1 / -1 / -1", minHeight: "calc(100vh - 100px)" }}>
+             <Suspense fallback={<div>Loading board…</div>}>
+                <IncidentKanban />
+             </Suspense>
+          </div>
+        )}
       </main>
+
+      {showInjectModal && (
+        <Suspense fallback={null}>
+          <InjectModal 
+            onClose={() => setShowInjectModal(false)} 
+            onInjected={(event) => {
+              setLatest(event);
+              setLatestIncident(event);
+              setData(prev => [...prev, event].slice(-MAX_DATA_POINTS));
+              setAnomalies(prev => [...prev, event].slice(-MAX_ANOMALIES));
+              setRecentIncidents(prev => [event, ...prev].slice(0, 5));
+              if (event.severity === "critical" || event.severity === "high") playAlert(event.severity);
+              refreshOperationalData().catch(() => {});
+            }} 
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -20,7 +20,7 @@ function ThinkingIndicator({ label }) {
   );
 }
 
-export default function AIPanel({ incident, thinking, progressMessages = [] }) {
+export default function AIPanel({ incident, thinking, progressMessages = [], benchmark = null }) {
   const [activeTab, setActiveTab] = useState("explanation");
 
   const hasAgents = incident?.agents || {};
@@ -314,13 +314,21 @@ export default function AIPanel({ incident, thinking, progressMessages = [] }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                  <div style={{ padding: "8px", background: "#0a0e1a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
                     <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>PRECISION</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>87%</div>
-                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Recall: 45%</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>
+                      {benchmark?.results?.net_guardian_ai?.precision ? `${(benchmark.results.net_guardian_ai.precision * 100).toFixed(0)}%` : "87%"}
+                    </div>
+                    <div style={{ fontSize: 7, color: "#94a3b8" }}>
+                      Recall: {benchmark?.results?.net_guardian_ai?.recall ? `${(benchmark.results.net_guardian_ai.recall * 100).toFixed(0)}%` : "45%"}
+                    </div>
                  </div>
                  <div style={{ padding: "8px", background: "#0a0e1a", borderRadius: 4, border: "1px solid #1e2d4a" }}>
                     <div style={{ fontSize: 8, color: "#64748b", marginBottom: 2 }}>DETECTION LEAD</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>-3.3s</div>
-                    <div style={{ fontSize: 7, color: "#94a3b8" }}>Baseline (MA): 11.5s Lag</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>
+                      {benchmark?.results?.net_guardian_ai?.avg_lag_sec ? `-${benchmark.results.net_guardian_ai.avg_lag_sec}s` : "-3.3s"}
+                    </div>
+                    <div style={{ fontSize: 7, color: "#94a3b8" }}>
+                      Baseline: {benchmark?.results?.adaptive_ma_baseline?.avg_lag_sec ? `${benchmark.results.adaptive_ma_baseline.avg_lag_sec}s` : "11.5s"} Lag
+                    </div>
                  </div>
               </div>
            </div>

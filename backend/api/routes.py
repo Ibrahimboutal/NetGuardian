@@ -540,30 +540,52 @@ def nodes_status(request: Request):
 
 
 @router.post("/api/inject-anomaly")
-def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
+async def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
     """
-    Demo endpoint — injects a scripted high-severity anomaly into the pipeline.
+    Demo endpoint — injects a scripted or custom anomaly into the pipeline.
     """
     enforce_rate_limit(request)
     _ensure_trained()
     import pandas as pd
 
-    scripted_row = pd.Series({
-        "timestamp": pd.Timestamp.now(),
+    # Default scripted values
+    data = {
         "node_id": node_id,
         "latency_ms": 380.0,
         "throughput_mbps": 160.0,
         "packet_loss_pct": 22.0,
         "jitter_ms": 65.0,
         "connections": 950,
+        "severity": "high",
+        "primary_metric": "latency_ms"
+    }
+
+    # Try to load custom values from body if provided
+    try:
+        body = await request.json()
+        data.update(body)
+    except:
+        pass
+
+    scripted_row = pd.Series({
+        "timestamp": pd.Timestamp.now(),
+        "node_id": data["node_id"],
+        "latency_ms": data["latency_ms"],
+        "throughput_mbps": data["throughput_mbps"],
+        "packet_loss_pct": data["packet_loss_pct"],
+        "jitter_ms": data["jitter_ms"],
+        "connections": data["connections"],
     })
 
     event = _detector.predict_row(scripted_row)
     event["anomaly"] = True  
-    event["severity"] = "high"
-    event["primary_metric"] = "latency_ms"
+    event["severity"] = data["severity"]
+    event["primary_metric"] = data["primary_metric"]
 
-    result = trigger_agent_pipeline(event)
+    # Trigger agents
+    result = await asyncio.get_running_loop().run_in_executor(
+        None, trigger_agent_pipeline, event
+    )
     _record_incident(result)
     return result
 

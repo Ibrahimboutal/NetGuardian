@@ -111,7 +111,7 @@ function NodeDot({ node, anomalies }) {
   );
 }
 
-export default function NodeTopologyMap({ anomalies = [] }) {
+export default function NodeTopologyMap({ anomalies = [], activeIncident = null }) {
   const recentAnomalies = useMemo(() => anomalies.slice(-30), [anomalies]);
 
   const statusCounts = useMemo(() => {
@@ -121,6 +121,16 @@ export default function NodeTopologyMap({ anomalies = [] }) {
     });
     return counts;
   }, [recentAnomalies]);
+
+  const cascadeNodes = useMemo(() => {
+    if (!activeIncident?.blackboard?.causal_chain) return new Set();
+    const nodes = new Set();
+    activeIncident.blackboard.causal_chain.forEach(link => {
+      nodes.add(link.epicenter);
+      if (link.critical_hits) link.critical_hits.forEach(n => nodes.add(n));
+    });
+    return nodes;
+  }, [activeIncident]);
 
   // Group nodes by row (y value)
   const rows = useMemo(() => {
@@ -183,9 +193,28 @@ export default function NodeTopologyMap({ anomalies = [] }) {
             gap: 10,
             flexWrap: "wrap",
           }}>
-            {nodes.sort((a, b) => a.x - b.x).map(node => (
-              <NodeDot key={node.id} node={node} anomalies={recentAnomalies} />
-            ))}
+            {nodes.sort((a, b) => a.x - b.x).map(node => {
+              const isInCascade = cascadeNodes.has(node.id);
+              return (
+                <div key={node.id} style={{
+                  position: "relative",
+                  animation: isInCascade ? "cascade-ripple 2s infinite" : "none",
+                  borderRadius: 12,
+                }}>
+                  <NodeDot node={node} anomalies={recentAnomalies} />
+                  {isInCascade && (
+                    <div style={{
+                      position: "absolute",
+                      inset: -4,
+                      border: "2px solid #ef4444",
+                      borderRadius: "50%",
+                      animation: "ripple-effect 2s infinite",
+                      pointerEvents: "none",
+                    }} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -194,6 +223,14 @@ export default function NodeTopologyMap({ anomalies = [] }) {
         @keyframes pulse-node {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
           50% { box-shadow: 0 0 12px 4px rgba(239,68,68,0.35); }
+        }
+        @keyframes ripple-effect {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          100% { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes cascade-ripple {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
         }
       `}</style>
     </div>
