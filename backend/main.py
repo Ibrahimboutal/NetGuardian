@@ -19,6 +19,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+@app.on_event("startup")
+async def startup_event():
+    from backend.db import init_db
+    await init_db()
+
 app.add_middleware(RequestContextMiddleware)
 
 # Allow the React frontend (localhost:5173) to connect

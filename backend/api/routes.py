@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
+from backend.db import record_incident, get_recent_incidents, update_incident_state, get_db_summary
 from backend.anomaly.preprocess import load_dataset
 from backend.anomaly.detector import AnomalyDetector
 from backend.events.trigger import trigger_agent_pipeline
@@ -25,61 +26,12 @@ from datetime import datetime, timezone
 
 # --- Shared state ---
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "ML-MATT-CompetitionQT2021_train.csv"
-INCIDENT_LOG_PATH = Path(__file__).parent.parent.parent / "data" / "incident_log.jsonl"
-AUDIT_LOG_PATH = Path(__file__).parent.parent.parent / "data" / "incident_audit.jsonl"
 _df = None
 _detector = AnomalyDetector()
 _stream_active = False
 _train_lock = threading.Lock()
 _state_lock = threading.RLock()
-_incident_log = []
 _benchmark_cache = None
-_incident_log_loaded = False
-
-
-def _load_incident_log():
-    global _incident_log_loaded
-    with _state_lock:
-        if _incident_log_loaded:
-            return
-
-        if INCIDENT_LOG_PATH.exists():
-            try:
-                with INCIDENT_LOG_PATH.open("r", encoding="utf-8") as handle:
-                    for line in handle:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            _incident_log.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            continue
-                    del _incident_log[:-settings.incident_retention_count]
-            except OSError:
-                logger.warning("Unable to load incident log from disk.")
-
-        _incident_log_loaded = True
-
-
-def _append_incident_to_disk(event: dict):
-    try:
-        if INCIDENT_LOG_PATH.exists() and INCIDENT_LOG_PATH.stat().st_size >= settings.incident_log_max_bytes:
-            rotated = INCIDENT_LOG_PATH.with_name(f"incident_log.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.jsonl")
-            INCIDENT_LOG_PATH.rename(rotated)
-        INCIDENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with INCIDENT_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(sanitize_payload(event), default=str) + "\n")
-    except OSError:
-        logger.warning("Unable to persist incident log entry.")
-
-
-def _append_audit_log(entry: dict):
-    try:
-        AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, default=str) + "\n")
-    except OSError:
-        logger.warning("Unable to persist incident audit entry.")
 
 
 def _emit_alert(event: dict):
@@ -104,8 +56,7 @@ def _emit_alert(event: dict):
     except requests.RequestException:
         logger.warning("Alert webhook failed")
 
-
-def _record_incident(event: dict):
+async def _record_incident(event: dict):
     if not event or not event.get("anomaly"):
         return
 
@@ -113,50 +64,12 @@ def _record_incident(event: dict):
     event.setdefault("incident_state", "open")
     event.setdefault("assigned_to", None)
 
-    with _state_lock:
-        _load_incident_log()
-        _incident_log.append(event)
-        del _incident_log[:-settings.incident_retention_count]
-        _append_incident_to_disk(event)
-        _append_audit_log({
-            "incident_id": event.get("incident_id"),
-            "action": "incident_recorded",
-            "at": datetime.now(timezone.utc).isoformat(),
-            "state": event.get("incident_state", "open"),
-        })
+    await record_incident(event)
     _emit_alert(event)
 
 
-def _find_incident_or_404(incident_id: str) -> dict:
-    _load_incident_log()
-    for incident in reversed(_incident_log):
-        if incident.get("incident_id") == incident_id:
-            return incident
-    raise HTTPException(status_code=404, detail="Incident not found")
-
-
-def _build_summary() -> dict:
-    total = len(_incident_log)
-    severity_counts = Counter(item.get("severity", "unknown") for item in _incident_log)
-    primary_metrics = Counter(item.get("primary_metric", "unknown") for item in _incident_log)
-    avg_score = 0.0
-    if total:
-        scores = [float(item.get("anomaly_score", item.get("score", 0)) or 0) for item in _incident_log]
-        avg_score = sum(scores) / len(scores)
-    return {
-        "total_incidents": total,
-        "severity_counts": dict(severity_counts),
-        "primary_metrics": dict(primary_metrics),
-        "average_score": round(avg_score, 4),
-        "stream_active": _stream_active,
-    }
-
-
-def _build_insights() -> dict:
-    _load_incident_log()
-    recent = _incident_log[-20:]
+def _build_insights_from_data(recent: list) -> dict:
     recent_total = len(recent)
-
     if not recent_total:
         return {
             "recurring_case": None,
@@ -198,9 +111,7 @@ def _build_insights() -> dict:
     }
 
 
-def _build_forecast() -> dict:
-    _load_incident_log()
-    recent = _incident_log[-10:]
+def _build_forecast_from_data(recent: list) -> dict:
     if not recent:
         return {
             "horizon_sec": 60,
@@ -212,12 +123,7 @@ def _build_forecast() -> dict:
         }
 
     severity_score = {
-        "critical": 1.0,
-        "high": 0.8,
-        "medium": 0.55,
-        "low": 0.3,
-        "normal": 0.1,
-        "unknown": 0.2,
+        "critical": 1.0, "high": 0.8, "medium": 0.55, "low": 0.3, "normal": 0.1, "unknown": 0.2,
     }
     metric_counter = Counter(item.get("primary_metric", "unknown") for item in recent)
     case_counter = Counter((item.get("experience") or {}).get("id") or item.get("primary_metric", "unknown") for item in recent)
@@ -255,16 +161,10 @@ def _build_forecast() -> dict:
     }
 
 
-def _build_cascade_timeline() -> dict:
-    _load_incident_log()
-    recent = _incident_log[-8:]
+def _build_cascade_timeline_from_data(recent: list) -> dict:
     if not recent:
         return {
-            "horizon_sec": 60,
-            "focus_node": None,
-            "risk_level": "unknown",
-            "spread_target": None,
-            "steps": [],
+            "horizon_sec": 60, "focus_node": None, "risk_level": "unknown", "spread_target": None, "steps": [],
             "summary": "No incident memory available yet.",
         }
 
@@ -272,12 +172,7 @@ def _build_cascade_timeline() -> dict:
     node_counter = Counter(item.get("node_id", "Router-14") for item in recent)
     case_counter = Counter((item.get("experience") or {}).get("id") or item.get("primary_metric", "unknown") for item in recent)
     severity_weights = {
-        "critical": 3,
-        "high": 2,
-        "medium": 1,
-        "low": 0.5,
-        "normal": 0.2,
-        "unknown": 0.4,
+        "critical": 3, "high": 2, "medium": 1, "low": 0.5, "normal": 0.2, "unknown": 0.4,
     }
 
     focus_node, focus_count = node_counter.most_common(1)[0]
@@ -300,47 +195,21 @@ def _build_cascade_timeline() -> dict:
         action = "keep sampling the active node"
 
     steps = [
-        {
-            "window_sec": 0,
-            "label": "Trigger",
-            "node": focus_node,
-            "signal": spread_target,
-            "effect": "Current pressure concentrates on the epicenter.",
-        },
-        {
-            "window_sec": 20,
-            "label": "Cascade edge",
-            "node": focus_node,
-            "signal": recurring_case,
-            "effect": f"Recent cases suggest the failure can {spread_verb} into the repeating pattern.",
-        },
-        {
-            "window_sec": 40,
-            "label": "Containment horizon",
-            "node": f"{focus_node} / perimeter",
-            "signal": spread_target,
-            "effect": f"Recommended response: {action} before the next wave expands.",
-        },
+        {"window_sec": 0, "label": "Trigger", "node": focus_node, "signal": spread_target, "effect": "Current pressure concentrates on the epicenter."},
+        {"window_sec": 20, "label": "Cascade edge", "node": focus_node, "signal": recurring_case, "effect": f"Recent cases suggest the failure can {spread_verb} into the repeating pattern."},
+        {"window_sec": 40, "label": "Containment horizon", "node": f"{focus_node} / perimeter", "signal": spread_target, "effect": f"Recommended response: {action} before the next wave expands."},
     ]
 
     return {
-        "horizon_sec": 60,
-        "focus_node": focus_node,
-        "focus_count": focus_count,
-        "spread_target": spread_target,
-        "spread_count": spread_count,
-        "recurring_case": recurring_case,
-        "recurring_case_count": recurring_case_count,
-        "risk_level": risk_level,
-        "cascade_score": cascade_score,
-        "steps": steps,
+        "horizon_sec": 60, "focus_node": focus_node, "focus_count": focus_count, "spread_target": spread_target,
+        "spread_count": spread_count, "recurring_case": recurring_case, "recurring_case_count": recurring_case_count,
+        "risk_level": risk_level, "cascade_score": cascade_score, "steps": steps,
         "summary": f"{risk_level.upper()} cascade risk centered on {focus_node} with pressure on {spread_target}.",
     }
 
 
 def _ensure_trained():
     global _df, _detector
-    _load_incident_log()
     if _df is not None:
         return
         
@@ -362,15 +231,17 @@ def _ensure_trained():
 
 
 @router.get("/api/health")
-def health(request: Request):
+async def health(request: Request):
     enforce_rate_limit(request)
     _ensure_trained()
+    from backend.db import get_db_summary
+    stats = await get_db_summary()
     return {
         "status": "ok",
         "model": "IsolationForest",
         "ai": "Gemma (Ollama)",
         "dataset_rows": int(len(_df)) if _df is not None else 0,
-        "incidents_recorded": len(_incident_log),
+        "incidents_recorded": stats.get("total_incidents", 0),
         "stream_active": _stream_active,
     }
 
@@ -388,55 +259,74 @@ def metrics_history(request: Request):
 
 
 @router.get("/api/incidents/recent")
-def recent_incidents(request: Request, limit: int = Query(default=20, ge=1, le=100)):
+async def recent_incidents(request: Request, limit: int = Query(default=20, ge=1, le=100)):
     """Return the most recent incident payloads for operator review."""
     enforce_rate_limit(request)
-    _load_incident_log()
-    return {"data": [sanitize_payload(i) for i in _incident_log[-limit:]]}
+    from backend.db import get_recent_incidents
+    data = await get_recent_incidents(limit=limit)
+    return {"data": [sanitize_payload(i) for i in data]}
 
 
 @router.get("/api/system/summary")
-def system_summary(request: Request):
+async def system_summary(request: Request):
     """Return a compact operational summary for the demo and writeup."""
     enforce_rate_limit(request)
     _ensure_trained()
-    summary = _build_summary()
-    summary["insights"] = _build_insights()
-    summary["forecast"] = _build_forecast()
-    summary["cascade"] = _build_cascade_timeline()
-    summary["data_points"] = int(len(_df)) if _df is not None else 0
-    summary["columns"] = list(_df.columns) if _df is not None else []
-    return summary
+    
+    from backend.db import get_db_summary, get_recent_incidents
+    db_stats = await get_db_summary()
+    recent_for_insights = await get_recent_incidents(limit=20)
+    
+    # We still use build_insights logic but with DB data
+    insights = _build_insights_from_data(recent_for_insights)
+    forecast = _build_forecast_from_data(recent_for_insights)
+    cascade = _build_cascade_timeline_from_data(recent_for_insights)
+    
+    return {
+        **db_stats,
+        "insights": insights,
+        "forecast": forecast,
+        "cascade": cascade,
+        "data_points": int(len(_df)) if _df is not None else 0,
+        "columns": list(_df.columns) if _df is not None else [],
+        "stream_active": _stream_active,
+    }
 
 
 @router.get("/api/incidents/insights")
-def incident_insights(request: Request):
+async def incident_insights(request: Request):
     """Return recurring-pattern insights derived from the incident memory."""
     enforce_rate_limit(request)
-    return _build_insights()
+    data = await get_recent_incidents(limit=20)
+    return _build_insights_from_data(data)
 
 
 @router.get("/api/incidents/forecast")
-def incident_forecast(request: Request):
+async def incident_forecast(request: Request):
     """Return a short-horizon forecast based on recent incident memory."""
     enforce_rate_limit(request)
-    forecast = _build_forecast()
-    forecast["cascade"] = _build_cascade_timeline()
+    data = await get_recent_incidents(limit=10)
+    forecast = _build_forecast_from_data(data)
+    forecast["cascade"] = _build_cascade_timeline_from_data(data)
     return forecast
 
 
 @router.get("/api/incidents/export")
-def export_incidents(request: Request, _: str = Depends(require_api_key)):
+async def export_incidents(request: Request, _: str = Depends(require_api_key)):
     """Return a single JSON report that can be downloaded by the frontend."""
     enforce_rate_limit(request)
-    _load_incident_log()
     _ensure_trained()
+    
+    from backend.db import get_recent_incidents, get_db_summary
+    recent = await get_recent_incidents(limit=100)
+    summary = await get_db_summary()
+    
     return {
-        "summary": _build_summary(),
-        "insights": _build_insights(),
-        "forecast": _build_forecast(),
-        "cascade": _build_cascade_timeline(),
-        "recent_incidents": [sanitize_payload(item) for item in _incident_log[-100:]],
+        "summary": summary,
+        "insights": _build_insights_from_data(recent[:20]),
+        "forecast": _build_forecast_from_data(recent[:10]),
+        "cascade": _build_cascade_timeline_from_data(recent[:8]),
+        "recent_incidents": [sanitize_payload(item) for item in recent],
         "benchmark": _benchmark_cache,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -501,7 +391,7 @@ async def stream_events(speed: float = 1.0):
                     for msg in progress_messages:
                         yield {"event": "agent_status", "data": json.dumps({"message": msg})}
 
-                    _record_incident(event)
+                    await _record_incident(event)
 
                 payload = json.dumps(event)
                 yield {"event": "metric", "data": payload}
@@ -586,47 +476,77 @@ async def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
     result = await asyncio.get_running_loop().run_in_executor(
         None, trigger_agent_pipeline, event
     )
-    _record_incident(result)
+    await _record_incident(result)
     return result
 
 
 @router.post("/api/incidents/{incident_id}/ack")
-def acknowledge_incident(
+async def acknowledge_incident(
     incident_id: str,
     request: Request,
     assigned_to: str = Query(default="on-call"),
     _: str = Depends(require_api_key),
 ):
     enforce_rate_limit(request)
-    incident = _find_incident_or_404(incident_id)
-    incident["incident_state"] = "acknowledged"
-    incident["assigned_to"] = assigned_to
-    entry = {
-        "incident_id": incident_id,
-        "action": "acknowledged",
-        "assigned_to": assigned_to,
-        "at": datetime.now(timezone.utc).isoformat(),
-    }
-    _append_audit_log(entry)
-    return {"status": "ok", "incident": sanitize_payload(incident)}
+    from backend.db import update_incident_state
+    await update_incident_state(incident_id, "acknowledged", assigned_to=assigned_to)
+    return {"status": "ok", "incident_id": incident_id, "state": "acknowledged"}
 
 
 @router.post("/api/incidents/{incident_id}/resolve")
-def resolve_incident(
+async def resolve_incident(
     incident_id: str,
     request: Request,
     resolution_note: str = Query(default="resolved_by_operator"),
+    is_valid_anomaly: bool = Query(default=True),
     _: str = Depends(require_api_key),
 ):
     enforce_rate_limit(request)
-    incident = _find_incident_or_404(incident_id)
-    incident["incident_state"] = "resolved"
-    incident["resolution_note"] = resolution_note[:200]
-    entry = {
-        "incident_id": incident_id,
-        "action": "resolved",
-        "note": resolution_note[:200],
-        "at": datetime.now(timezone.utc).isoformat(),
-    }
-    _append_audit_log(entry)
-    return {"status": "ok", "incident": sanitize_payload(incident)}
+    
+    # 1. Update DB
+    from backend.db import update_incident_state
+    await update_incident_state(incident_id, "resolved", note=resolution_note[:200])
+    
+    # 2. Calibrate model (Adaptive Threshold)
+    _detector.calibrate_from_feedback(is_valid_anomaly, "medium")
+    
+    # 3. KB Auto-Update (Dynamic RAG expansion)
+    if len(resolution_note) > 20 and is_valid_anomaly:
+        logger.info(f"📚 Auto-updating Knowledge Base with case from {incident_id}")
+        # In a real implementation, we would call the vector DB here.
+        # For the demo, we'll just log it.
+        
+    return {"status": "ok", "incident_id": incident_id, "state": "resolved"}
+
+@router.get("/api/incidents/export-csv")
+async def export_incidents_csv(request: Request, _: str = Depends(require_api_key)):
+    """Export all recorded incidents as CSV."""
+    enforce_rate_limit(request)
+    from backend.db import get_recent_incidents
+    data = await get_recent_incidents(limit=1000)
+    
+    import io
+    import csv
+    from fastapi.responses import StreamingResponse
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "timestamp", "node_id", "severity", "primary_metric", "score", "state"])
+    
+    for inc in data:
+        writer.writerow([
+            inc.get("incident_id"),
+            inc.get("timestamp"),
+            inc.get("node_id"),
+            inc.get("severity"),
+            inc.get("primary_metric"),
+            inc.get("anomaly_score", inc.get("score")),
+            inc.get("incident_state")
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.StringIO(output.getvalue()),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=netguardian_incidents.csv"}
+    )

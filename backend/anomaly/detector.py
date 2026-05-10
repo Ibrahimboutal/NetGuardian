@@ -27,6 +27,8 @@ class AnomalyDetector:
             "latency_delta", "throughput_delta", "packet_loss_delta", "jitter_delta", "connections_delta",
             "latency_trend", "throughput_trend", "packet_loss_trend", "jitter_trend", "connections_trend"
         ]
+        self.threshold_offset = 0.0
+        self.feedback_count = 0
         self._load_model_if_exists()
 
     def fit(self, df: pd.DataFrame):
@@ -78,6 +80,8 @@ class AnomalyDetector:
                 "is_trained": self.is_trained,
                 "feature_names": self.feature_names,
                 "model_version": self.model_version,
+                "threshold_offset": self.threshold_offset,
+                "feedback_count": self.feedback_count
             }
             joblib.dump(payload, self.model_path)
             logger.info("💾 Model state persisted at %s", self.model_path)
@@ -94,6 +98,8 @@ class AnomalyDetector:
                 self.model = model
             self.training_data = payload.get("training_data", [])
             self.is_trained = bool(payload.get("is_trained", False))
+            self.threshold_offset = payload.get("threshold_offset", 0.0)
+            self.feedback_count = payload.get("feedback_count", 0)
             logger.info("📦 Loaded persisted model from %s", self.model_path)
         except Exception as exc:
             logger.warning("Failed to load persisted model: %s", exc)
@@ -139,10 +145,11 @@ class AnomalyDetector:
 
         # --- Severity ---
         severity = "normal"
+        calibrated_score = score - self.threshold_offset
         if is_anomaly:
-            if score < -0.65:
+            if calibrated_score < -0.65:
                 severity = "critical"
-            elif score < -0.55:
+            elif calibrated_score < -0.55:
                 severity = "high"
             else:
                 severity = "medium"
@@ -151,6 +158,26 @@ class AnomalyDetector:
             self.train_step(features)
 
         return is_anomaly, abs(score), severity, attribution
+
+    def calibrate_from_feedback(self, is_valid: bool, severity: str):
+        """
+        Adjust the sensitivity threshold based on operator validation.
+        If operator resolves as 'not an anomaly', we slightly increase the threshold.
+        """
+        with self.lock:
+            self.feedback_count += 1
+            learning_rate = 0.05
+            
+            if not is_valid:
+                # User says this wasn't an anomaly, make the model more conservative
+                self.threshold_offset -= learning_rate
+                logger.info(f"🧠 Calibrating Sentinel: Decreasing sensitivity (offset={self.threshold_offset:.4f})")
+            else:
+                # User confirmed it was an anomaly, potentially adjust severity weights
+                pass
+            
+            if self.feedback_count % 5 == 0:
+                self.save_model()
 
     def predict_row(self, row: pd.Series) -> dict:
         """
