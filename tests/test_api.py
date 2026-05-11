@@ -24,22 +24,22 @@ def _seed_test_state():
 
 
 def test_health_endpoint():
-    _seed_test_state()
-    client = TestClient(app)
-    resp = client.get("/api/health")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "ok"
+    with TestClient(app) as client:
+        _seed_test_state()
+        resp = client.get("/api/health")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "ok"
 
 
 def test_metrics_history_endpoint():
-    _seed_test_state()
-    client = TestClient(app)
-    resp = client.get("/api/metrics/history")
-    assert resp.status_code == 200
-    data = resp.json().get("data", [])
-    assert isinstance(data, list)
-    assert len(data) > 0
+    with TestClient(app) as client:
+        _seed_test_state()
+        resp = client.get("/api/metrics/history")
+        assert resp.status_code == 200
+        data = resp.json().get("data", [])
+        assert isinstance(data, list)
+        assert len(data) > 0
 
 
 def test_nodes_status_endpoint():

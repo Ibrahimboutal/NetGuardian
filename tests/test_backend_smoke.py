@@ -11,12 +11,14 @@ from backend.main import app
 
 class BackendSmokeTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(app)
+        self._ctx = TestClient(app)
+        self.client = self._ctx.__enter__()
         # Clear cache for deterministic testing
         routes._benchmark_cache = None
 
     def tearDown(self):
         routes._benchmark_cache = None
+        self._ctx.__exit__(None, None, None)
 
     def test_health_endpoint_returns_operational_snapshot(self):
         with patch.object(routes, "_ensure_trained", return_value=None):
