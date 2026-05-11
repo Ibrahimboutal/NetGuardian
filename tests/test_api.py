@@ -55,3 +55,13 @@ def test_nodes_status_endpoint():
             assert "node_id" in node
             assert "status" in node
             assert "criticality" in node
+
+
+def test_what_if_simulation_endpoint():
+    with TestClient(app) as client:
+        resp = client.post("/api/simulate/what-if", json={"node_id": "Router-01", "magnitude": 100})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "simulation_complete"
+        assert "prediction" in body
+        assert "impact_score" in body["prediction"]
