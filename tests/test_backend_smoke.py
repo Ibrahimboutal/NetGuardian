@@ -1,7 +1,7 @@
-import tempfile
 import unittest
+import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -12,10 +12,10 @@ from backend.main import app
 class BackendSmokeTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        # Clear cache for deterministic testing
+        routes._benchmark_cache = None
 
     def tearDown(self):
-        routes._incident_log.clear()
-        routes._incident_log_loaded = False
         routes._benchmark_cache = None
 
     def test_health_endpoint_returns_operational_snapshot(self):
@@ -35,8 +35,10 @@ class BackendSmokeTests(unittest.TestCase):
             side_effect=lambda event, progress_cb=None: {
                 **event,
                 "agents": {"diagnosis": "ok", "recommendation": "ok", "explanation": "ok"},
+                "incident_id": "test-id-123",
+                "anomaly": True
             },
-        ):
+        ), patch("backend.api.routes.record_incident", side_effect=lambda x: None):
             response = self.client.post("/api/inject-anomaly")
 
         self.assertEqual(response.status_code, 200)
@@ -55,7 +57,6 @@ class BackendSmokeTests(unittest.TestCase):
                     "adaptive_ma_baseline": {"precision": 0.5, "recall": 0.4, "avg_lag_sec": 18},
                 }
 
-        from unittest.mock import MagicMock
         mock_request = MagicMock()
         with patch.object(routes, "_ensure_trained", return_value=None), patch("backend.evaluation.NetGuardianEvaluator", FakeEvaluator):
             first = routes.evaluation_benchmark(request=mock_request, refresh=True)
@@ -65,7 +66,7 @@ class BackendSmokeTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertIn("results", first)
 
-    def test_record_incident_persists_anomaly(self):
+    def test_record_incident_calls_db(self):
         event = {
             "anomaly": True,
             "severity": "high",
@@ -74,19 +75,12 @@ class BackendSmokeTests(unittest.TestCase):
             "anomaly_score": 0.91,
         }
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            original_path = routes.INCIDENT_LOG_PATH
-            routes.INCIDENT_LOG_PATH = Path(tmp_dir) / "incident_log.jsonl"
-            try:
-                routes._record_incident(event)
-                routes._incident_log_loaded = False
-                routes._incident_log.clear()
-                routes._load_incident_log()
-            finally:
-                routes.INCIDENT_LOG_PATH = original_path
-
-        self.assertTrue(routes._incident_log)
-        self.assertEqual(routes._incident_log[-1]["node_id"], "Core-DC-01")
+        with patch("backend.api.routes.record_incident") as mock_record:
+            asyncio.run(routes._record_incident(event))
+            mock_record.assert_called_once()
+            args, _ = mock_record.call_args
+            self.assertEqual(args[0]["node_id"], "Core-DC-01")
+            self.assertIn("incident_id", args[0])
 
 
 if __name__ == "__main__":

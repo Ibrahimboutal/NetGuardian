@@ -55,7 +55,14 @@ class AnomalyDetector:
         X = np.array(features_list, dtype=float)
 
         with self.lock:
-            self.model.fit(X)
+            try:
+                self.model.fit(X)
+            except (AttributeError, TypeError, ValueError) as e:
+                logger.warning(f"⚠️ Model fit failed (likely corrupted state/version mismatch). Resetting model. Error: {e}")
+                # Reset to a fresh model and try again
+                self.model = IsolationForest(n_estimators=100, contamination=0.1)
+                self.model.fit(X)
+            
             self.is_trained = True
             self.training_data = features_list[-500:]
             try:
@@ -74,7 +81,11 @@ class AnomalyDetector:
 
             if len(self.training_data) >= 20 and self.steps_since_train >= 50:
                 X = np.array(self.training_data)
-                self.model.fit(X)
+                try:
+                    self.model.fit(X)
+                except (AttributeError, TypeError, ValueError):
+                    self.model = IsolationForest(n_estimators=100, contamination=0.1)
+                    self.model.fit(X)
                 self.is_trained = True
                 self.explainer = shap.TreeExplainer(self.model)
                 self.steps_since_train = 0
@@ -83,6 +94,8 @@ class AnomalyDetector:
 
     def save_model(self):
         try:
+            # We save scikit-learn version to help with debugging mismatches
+            import sklearn
             payload = {
                 "model": self.model,
                 "training_data": self.training_data,
@@ -90,7 +103,8 @@ class AnomalyDetector:
                 "feature_names": self.feature_names,
                 "model_version": self.model_version,
                 "threshold_offset": self.threshold_offset,
-                "feedback_count": self.feedback_count
+                "feedback_count": self.feedback_count,
+                "sklearn_version": sklearn.__version__
             }
             joblib.dump(payload, self.model_path)
             logger.info("💾 Model state persisted at %s", self.model_path)
@@ -102,9 +116,22 @@ class AnomalyDetector:
             return
         try:
             payload = joblib.load(self.model_path)
+            
+            # Basic version check if available
+            import sklearn
+            saved_version = payload.get("sklearn_version")
+            if saved_version and saved_version != sklearn.__version__:
+                logger.warning(f"🕒 Persisted model version mismatch ({saved_version} vs {sklearn.__version__}). Skipping load.")
+                return
+
             model = payload.get("model")
             if model is not None:
-                self.model = model
+                # Basic sanity check on the model object
+                if hasattr(model, "predict"):
+                    self.model = model
+                else:
+                    logger.warning("Loaded model object is invalid.")
+            
             self.training_data = payload.get("training_data", [])
             self.is_trained = bool(payload.get("is_trained", False))
             self.threshold_offset = payload.get("threshold_offset", 0.0)
