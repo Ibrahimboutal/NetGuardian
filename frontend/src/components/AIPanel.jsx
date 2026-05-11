@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, ShieldCheck, Info, TrendingUp, RefreshCcw, Layers, Search, BarChart3 } from "lucide-react";
+import { Brain, ShieldCheck, Info, TrendingUp, RefreshCcw, Layers, Search, BarChart3, Volume2 } from "lucide-react";
 import SHAPChart from "./SHAPChart";
 
 const TABS = [
@@ -39,6 +39,27 @@ export default function AIPanel({ incident, thinking, progressMessages = [], ben
   const safety = blackboard.safety_status || "PASSED";
   const primaryMetric = incident?.primary_metric || "latency_ms";
   const tacticalPriority = diagnosis.predicted_next_failure || incident?.diagnosis || "Stabilizing Infrastructure";
+  
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleSpeak = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const text = `NetGuardian Briefing for node ${incident.node_id}. Tactical Priority: ${tacticalPriority}. ${explanation.summary || ""}. The recommended action is ${recommendation.decision || ""}.`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 0.9;
+    
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   return (
     <div className={`ai-panel ${isActive ? "active" : ""}`}>
@@ -173,6 +194,15 @@ export default function AIPanel({ incident, thinking, progressMessages = [], ben
             )}
 
             <p className="ai-text">{explanation.summary || "The system detected an anomaly, simulated its spread, and produced a grounded operator briefing."}</p>
+            
+            <button 
+              onClick={handleSpeak}
+              className={`btn ${isSpeaking ? 'btn-danger' : 'btn-primary'}`}
+              style={{ marginTop: 16, width: "100%", justifyContent: "center", height: 40 }}
+            >
+              <Volume2 size={16} />
+              {isSpeaking ? "Stop Briefing" : "Listen to Radio Briefing"}
+            </button>
           </div>
         )}
 

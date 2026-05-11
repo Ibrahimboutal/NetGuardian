@@ -45,20 +45,24 @@ function nodeStatus(nodeId, anomalies) {
   return "warning";
 }
 
-function NodeDot({ node, anomalies }) {
+function NodeDot({ node, anomalies, onClick, isHighlighted }) {
   const status = nodeStatus(node.id, anomalies);
   const roleStyle = ROLE_COLORS[node.role];
   const statusStyle = STATUS_COLORS[status];
 
   return (
     <div
-      title={`${node.id} (${node.role}) — ${status}`}
+      title={`Click to Run What-If Simulation on ${node.id}`}
+      onClick={() => onClick?.(node.id)}
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: 4,
-        cursor: "default",
+        cursor: "pointer",
+        transform: isHighlighted ? "scale(1.15)" : "scale(1)",
+        zIndex: isHighlighted ? 10 : 1,
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
       <div style={{
@@ -66,14 +70,13 @@ function NodeDot({ node, anomalies }) {
         height: 36,
         borderRadius: node.role === "core" ? 8 : "50%",
         background: status === "critical" ? "rgba(239,68,68,0.15)" : roleStyle.bg,
-        border: `1.5px solid ${status === "critical" ? "#ef4444" : status === "warning" ? "#f59e0b" : roleStyle.border}`,
+        border: `1.5px solid ${isHighlighted ? "#3b82f6" : status === "critical" ? "#ef4444" : status === "warning" ? "#f59e0b" : roleStyle.border}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         position: "relative",
-        transition: "all 0.3s ease",
-        boxShadow: status === "critical" ? "0 0 12px rgba(239,68,68,0.4)" : "none",
-        animation: status === "critical" ? "pulse-node 1.5s infinite" : "none",
+        boxShadow: isHighlighted ? "0 0 20px rgba(59,130,246,0.6)" : status === "critical" ? "0 0 12px rgba(239,68,68,0.4)" : "none",
+        animation: isHighlighted ? "pulse-highlight 1.5s infinite" : status === "critical" ? "pulse-node 1.5s infinite" : "none",
       }}>
         {status === "offline" ? (
           <WifiOff size={14} color="#475569" />
@@ -111,7 +114,7 @@ function NodeDot({ node, anomalies }) {
   );
 }
 
-export default function NodeTopologyMap({ anomalies = [], activeIncident = null }) {
+export default function NodeTopologyMap({ anomalies = [], activeIncident = null, onWhatIf, whatIfLoading }) {
   const recentAnomalies = useMemo(() => anomalies.slice(-30), [anomalies]);
 
   const statusCounts = useMemo(() => {
@@ -123,12 +126,19 @@ export default function NodeTopologyMap({ anomalies = [], activeIncident = null 
   }, [recentAnomalies]);
 
   const cascadeNodes = useMemo(() => {
-    if (!activeIncident?.blackboard?.causal_chain) return new Set();
     const nodes = new Set();
-    activeIncident.blackboard.causal_chain.forEach(link => {
-      nodes.add(link.epicenter);
-      if (link.critical_hits) link.critical_hits.forEach(n => nodes.add(n));
-    });
+    if (activeIncident?.node_id) nodes.add(activeIncident.node_id);
+    
+    if (activeIncident?.simulation?.affected_nodes) {
+       activeIncident.simulation.affected_nodes.forEach(n => nodes.add(n));
+    }
+    
+    if (activeIncident?.blackboard?.causal_chain) {
+      activeIncident.blackboard.causal_chain.forEach(link => {
+        nodes.add(link.epicenter);
+        if (link.critical_hits) link.critical_hits.forEach(n => nodes.add(n));
+      });
+    }
     return nodes;
   }, [activeIncident]);
 
@@ -168,7 +178,12 @@ export default function NodeTopologyMap({ anomalies = [], activeIncident = null 
           <Wifi size={14} color="#06b6d4" />
           <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>Node Topology</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          {whatIfLoading && (
+            <div style={{ fontSize: 9, color: "#3b82f6", fontWeight: 700, animation: "blink 1s infinite", marginRight: 8 }}>
+              RUNNING WHAT-IF SIMULATION...
+            </div>
+          )}
           {[
             { key: "healthy",  color: "#10b981", label: "Healthy"  },
             { key: "warning",  color: "#f59e0b", label: "Warning"  },
@@ -195,13 +210,19 @@ export default function NodeTopologyMap({ anomalies = [], activeIncident = null 
           }}>
             {nodes.sort((a, b) => a.x - b.x).map(node => {
               const isInCascade = cascadeNodes.has(node.id);
+              const isEpicenter = activeIncident?.node_id === node.id;
               return (
                 <div key={node.id} style={{
                   position: "relative",
                   animation: isInCascade ? "cascade-ripple 2s infinite" : "none",
                   borderRadius: 12,
                 }}>
-                  <NodeDot node={node} anomalies={recentAnomalies} />
+                  <NodeDot 
+                    node={node} 
+                    anomalies={recentAnomalies} 
+                    onClick={onWhatIf}
+                    isHighlighted={isEpicenter}
+                  />
                   {isInCascade && (
                     <div style={{
                       position: "absolute",
@@ -220,6 +241,10 @@ export default function NodeTopologyMap({ anomalies = [], activeIncident = null 
       </div>
 
       <style>{`
+        @keyframes pulse-highlight {
+          0%, 100% { box-shadow: 0 0 10px 0 rgba(59,130,246,0.4); }
+          50% { box-shadow: 0 0 25px 8px rgba(59,130,246,0.6); }
+        }
         @keyframes pulse-node {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
           50% { box-shadow: 0 0 12px 4px rgba(239,68,68,0.35); }

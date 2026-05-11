@@ -429,6 +429,33 @@ def nodes_status(request: Request):
     return {"nodes": nodes, "total": len(nodes)}
 
 
+@router.post("/api/simulate/what-if")
+async def what_if_simulation(request: Request):
+    """
+    KILLED FEATURE: Interactive What-If Sandbox.
+    Predict the blast radius of a failure before it actually happens.
+    """
+    enforce_rate_limit(request)
+    from backend.agents.tools import simulate_impact
+    
+    try:
+        body = await request.json()
+        node_id = body.get("node_id", "Router-14")
+        magnitude = body.get("magnitude", 150)
+    except:
+        node_id = "Router-14"
+        magnitude = 150
+        
+    result = simulate_impact(node_id, magnitude=magnitude)
+    return {
+        "status": "simulation_complete",
+        "node_id": node_id,
+        "magnitude": magnitude,
+        "prediction": result,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
 @router.post("/api/inject-anomaly")
 async def inject_anomaly(request: Request, node_id: str = "Core-DC-01"):
     """

@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
   const [agentProgress, setAgentProgress] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
+  const [whatIfLoading, setWhatIfLoading] = useState(false);
   const reconnectTimerRef = useRef(null);
   const audioCtxRef = useRef(null);
 
@@ -296,6 +297,40 @@ export default function Dashboard() {
     }
   };
 
+  const handleWhatIf = async (nodeId) => {
+    if (whatIfLoading) return;
+    setWhatIfLoading(true);
+    setErrorMsg("");
+    try {
+      const res = await fetch(`${API}/api/simulate/what-if`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ node_id: nodeId, magnitude: 180 })
+      });
+      const result = await res.json();
+      
+      // We'll wrap the simulation in a "pseudo-incident" to show it in the AI panel
+      const pseudoIncident = {
+        node_id: nodeId,
+        anomaly: true,
+        severity: "simulated",
+        score: 0.0,
+        simulation: result.prediction,
+        agents: {
+          explanation: { summary: `WHAT-IF SIMULATION: A failure on ${nodeId} was modeled. Impact score: ${result.prediction.impact_score}. Affected nodes: ${result.prediction.affected_nodes_count}.` },
+          diagnosis: { reasoning_trace: "Manual sandbox trigger: Causal propagation analysis complete." }
+        },
+        attribution: ["manual_simulation"]
+      };
+      setLatestIncident(pseudoIncident);
+    } catch (err) {
+      console.error("What-if failed:", err);
+      setErrorMsg("What-if simulation failed");
+    } finally {
+      setWhatIfLoading(false);
+    }
+  };
+
   const lat = latest?.latency_ms?.toFixed(0) ?? "—";
   const thr = latest?.throughput_mbps?.toFixed(0) ?? "—";
   const loss = latest?.packet_loss_pct?.toFixed(1) ?? "—";
@@ -351,7 +386,12 @@ export default function Dashboard() {
             {/* ── Topology row ── */}
             <div className="topo-area" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <Suspense fallback={<div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading topology…</div>}>
-                <NodeTopologyMap anomalies={anomalies} activeIncident={latestIncident} />
+                <NodeTopologyMap 
+                  anomalies={anomalies} 
+                  activeIncident={latestIncident} 
+                  onWhatIf={handleWhatIf}
+                  whatIfLoading={whatIfLoading}
+                />
               </Suspense>
               <Suspense fallback={<div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>Loading heatmap…</div>}>
                 <HeatmapTimeline anomalies={anomalies} />
