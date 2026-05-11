@@ -27,3 +27,16 @@ def test_detector_predict_row_payload_keys():
     assert "severity" in event
     assert "primary_metric" in event
 
+
+def test_detector_resilience_to_corrupted_model():
+    from unittest.mock import patch
+    detector = AnomalyDetector()
+    df = pd.DataFrame([{"latency_ms": 10.0}] * 20)
+    
+    # Mock model.fit to fail once with AttributeError (simulating corrupted state)
+    with patch.object(detector.model, "fit", side_effect=[AttributeError("corrupted"), None]):
+        # This should trigger the try-except in detector.fit, reset the model, and succeed on retry
+        detector.fit(df)
+        
+    assert detector.is_trained is True
+

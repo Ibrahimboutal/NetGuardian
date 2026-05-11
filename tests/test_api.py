@@ -43,15 +43,15 @@ def test_metrics_history_endpoint():
 
 
 def test_nodes_status_endpoint():
-    client = TestClient(app)
-    resp = client.get("/api/nodes/status")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "nodes" in body
-    assert isinstance(body["nodes"], list)
-    assert body["total"] == len(body["nodes"])
-    # Every node must have the required fields
-    for node in body["nodes"]:
-        assert "node_id" in node
-        assert "status" in node
-        assert "criticality" in node
+    with TestClient(app) as client:
+        resp = client.get("/api/nodes/status")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "nodes" in body
+        assert isinstance(body["nodes"], list)
+        assert body["total"] == len(body["nodes"])
+        # Every node must have the required fields
+        for node in body["nodes"]:
+            assert "node_id" in node
+            assert "status" in node
+            assert "criticality" in node
